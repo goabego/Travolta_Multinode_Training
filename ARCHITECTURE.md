@@ -6,6 +6,8 @@ This document provides visual architecture diagrams and explanations for each mo
 
 ## 🏗️ High-Level System Architecture
 
+![JAX Multi-Node GKE System Architecture](/Users/abrahamgomez/travolta/assets/jax_gke_architecture_diagram.jpg)
+
 ```mermaid
 graph TD
     subgraph GCP["Google Cloud Project (PROJECT_ID)"]

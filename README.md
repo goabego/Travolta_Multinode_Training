@@ -33,6 +33,8 @@ Welcome to the production-ready learning plan and runbook for scaling **JAX mult
 
 For module-by-module architecture diagrams, see **[`ARCHITECTURE.md`](ARCHITECTURE.md)**.
 
+![JAX Multi-Node GKE Architecture Diagram](assets/jax_gke_architecture_diagram.jpg)
+
 ```mermaid
 graph TD
     subgraph GCP["Google Cloud Project (PROJECT_ID)"]
@@ -79,6 +81,8 @@ graph TD
 ├── config.py                       # Python module to load config.env into all notebooks
 ├── README.md                       # Comprehensive guide and documentation
 ├── ARCHITECTURE.md                 # Detailed visual architecture diagrams for each module
+├── assets/                         # Architecture diagram assets & images
+│   └── jax_gke_architecture_diagram.jpg
 ├── notebooks/                      # 7-Module Progressive Notebook Series
 │   ├── 00_config_and_setup.ipynb   # Module 00: VPC, Subnet & GCP API Setup
 │   ├── 01_gke_cluster_setup.ipynb  # Module 01: GKE Cluster & Operator Setup
