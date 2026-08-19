@@ -29,6 +29,48 @@ Welcome to the production-ready learning plan and runbook for scaling **JAX mult
 
 ---
 
+## 📐 System Architecture Overview
+
+For module-by-module architecture diagrams, see **[`ARCHITECTURE.md`](ARCHITECTURE.md)**.
+
+```mermaid
+graph TD
+    subgraph GCP["Google Cloud Project (PROJECT_ID)"]
+        subgraph VPC["Custom VPC Network (jax-network)"]
+            subgraph Subnet["Subnet (jax-subnet: 10.0.0.0/20)"]
+                PodRange["Pods Range: 10.4.0.0/14"]
+                SvcRange["Services Range: 10.8.0.0/20"]
+            end
+        end
+
+        subgraph AR["Google Artifact Registry"]
+            CPUImg["jax-cpu-multinode:latest"]
+            GPUImg["jax-gpu-multinode:latest"]
+            TPUImg["jax-tpu-multinode:latest"]
+        end
+
+        subgraph GKE["GKE Standard Cluster (jax-distributed-cluster)"]
+            ControlPlane["GKE Control Plane (JobSet Controller v0.6.0)"]
+            HeadlessDNS["Headless DNS Service (jax-cpu-job)"]
+            
+            subgraph CPUNodes["Default CPU Node Pool (2 to 20 Nodes)"]
+                Pod0["Pod 0 (Rank 0 - Coordinator)\nIP: 10.4.0.5\n4 Virtual Devices"]
+                Pod1["Pod 1 (Rank 1 - Worker)\nIP: 10.4.0.6\n4 Virtual Devices"]
+                PodN["Pod N-1 (Rank N-1 - Worker)\nIP: 10.4.x.y\n4 Virtual Devices"]
+            end
+        end
+    end
+
+    ControlPlane -->|Manages Lifecycle| HeadlessDNS
+    ControlPlane -->|Gang Schedules| CPUNodes
+    Pod0 <-->|TCP Port 1234 / Headless DNS| Pod1
+    Pod0 <-->|TCP Port 1234 / Headless DNS| PodN
+    Pod1 <-->|jax.lax.psum All-Reduce| PodN
+    AR -->|Pull Images| CPUNodes
+```
+
+---
+
 ## 📁 Repository Structure
 
 ```
@@ -36,6 +78,7 @@ Welcome to the production-ready learning plan and runbook for scaling **JAX mult
 ├── config.env                      # Central environment variables (User customizable)
 ├── config.py                       # Python module to load config.env into all notebooks
 ├── README.md                       # Comprehensive guide and documentation
+├── ARCHITECTURE.md                 # Detailed visual architecture diagrams for each module
 ├── notebooks/                      # 7-Module Progressive Notebook Series
 │   ├── 00_config_and_setup.ipynb   # Module 00: VPC, Subnet & GCP API Setup
 │   ├── 01_gke_cluster_setup.ipynb  # Module 01: GKE Cluster & Operator Setup
@@ -64,7 +107,7 @@ Welcome to the production-ready learning plan and runbook for scaling **JAX mult
 Edit `config.env` to set your GCP Project ID and settings:
 
 ```bash
-PROJECT_ID="travolta-505921"
+PROJECT_ID="[ENTER_PROJECT_ID]"
 REGION="us-central1"
 ZONE="us-central1-a"
 CLUSTER_NAME="jax-distributed-cluster"
@@ -88,3 +131,8 @@ IMAGE_TAG="latest"
 5. **[`04_jax_gpu_multinode.ipynb`](notebooks/04_jax_gpu_multinode.ipynb)**: Launch GPU multi-node training (If GPU quota available).
 6. **[`05_jax_tpu_multinode.ipynb`](notebooks/05_jax_tpu_multinode.ipynb)**: Launch TPU v5e 2x4 slice training (If TPU quota available).
 7. **[`06_cleanup.ipynb`](notebooks/06_cleanup.ipynb)**: Tear down JobSets, scale cluster down, and delete GCP resources.
+
+---
+
+## Questions 
+Contact -> abrahamgomez@google.com
