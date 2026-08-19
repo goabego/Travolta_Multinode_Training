@@ -1,0 +1,31 @@
+# Dockerfile for Multi-Node JAX TPU Training on GKE
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Install Python & system build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    git \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Install JAX with TPU support
+RUN pip install --no-cache-dir --upgrade \
+    "jax[tpu]" \
+    -f https://storage.googleapis.com/jax-releases/libtpu_releases.html \
+    flax \
+    optax \
+    numpy
+
+WORKDIR /app
+COPY jax_tpu_test.py /app/jax_tpu_test.py
+
+CMD ["python", "jax_tpu_test.py"]

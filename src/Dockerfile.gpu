@@ -1,0 +1,39 @@
+# Dockerfile for Multi-Node JAX GPU Training on GKE
+FROM nvidia/cuda:12.2.2-devel-ubuntu22.04
+
+# Avoid prompt during package installations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Install Python and essential utilities
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    git \
+    curl \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python3 as default python
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Install JAX with CUDA 12 support and additional scientific packages
+RUN pip install --no-cache-dir --upgrade \
+    "jax[cuda12_pip]" \
+    -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    flax \
+    optax \
+    numpy
+
+# Set working directory
+WORKDIR /app
+
+# Copy test script
+COPY jax_gpu_test.py /app/jax_gpu_test.py
+
+CMD ["python", "jax_gpu_test.py"]

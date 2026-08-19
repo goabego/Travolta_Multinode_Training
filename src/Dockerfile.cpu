@@ -1,0 +1,27 @@
+# Dockerfile for Multi-Node JAX CPU Training on GKE
+FROM python:3.10-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Install essential system build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Install CPU version of JAX, Flax, Optax, NumPy
+RUN pip install --no-cache-dir \
+    jax \
+    jaxlib \
+    flax \
+    optax \
+    numpy
+
+WORKDIR /app
+COPY jax_cpu_test.py /app/jax_cpu_test.py
+
+CMD ["python", "jax_cpu_test.py"]

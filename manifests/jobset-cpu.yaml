@@ -1,0 +1,59 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: jax-cpu-job
+  namespace: default
+spec:
+  failurePolicy:
+    maxRestarts: 2
+  replicatedJobs:
+    - name: workers
+      replicas: 1
+      template:
+        spec:
+          parallelism: 2
+          completions: 2
+          backoffLimit: 0
+          completionMode: Indexed
+          template:
+            metadata:
+              labels:
+                jobset.x-k8s.io/jobset-name: jax-cpu-job
+            spec:
+              affinity:
+                podAntiAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    - labelSelector:
+                        matchExpressions:
+                          - key: jobset.x-k8s.io/jobset-name
+                            operator: In
+                            values: ["jax-cpu-job"]
+                      topologyKey: "kubernetes.io/hostname"
+              nodeSelector:
+                cloud.google.com/gke-nodepool: default-pool
+              restartPolicy: Never
+              containers:
+                - name: jax-cpu-worker
+                  image: LOCATION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REGISTRY_REPO/CPU_IMAGE_NAME:IMAGE_TAG
+                  env:
+                    - name: JOB_COMPLETION_INDEX
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                    - name: XLA_FLAGS
+                      value: "--xla_force_host_platform_device_count=4"
+                    - name: NUM_PROCESSES
+                      value: "2"
+                    - name: PROCESS_ID
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                    - name: COORDINATOR_ADDRESS
+                      value: "jax-cpu-job-workers-0-0.jax-cpu-job.default.svc.cluster.local:1234"
+                  resources:
+                    requests:
+                      cpu: "1500m"
+                      memory: "2Gi"
+                    limits:
+                      cpu: "2"
+                      memory: "4Gi"

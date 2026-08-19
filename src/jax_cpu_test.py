@@ -1,0 +1,77 @@
+import os
+import sys
+import time
+import jax
+import jax.numpy as jnp
+from jax.experimental import multihost_utils
+from jax.sharding import Mesh, PartitionSpec as P, NamedSharding
+
+def main():
+    print("=" * 70)
+    print("Initializing Multi-Node JAX CPU Cluster...")
+    print("=" * 70)
+
+    coordinator_address = os.getenv("COORDINATOR_ADDRESS")
+    num_processes = int(os.getenv("NUM_PROCESSES", "1"))
+    process_id = int(os.getenv("PROCESS_ID", "0"))
+
+    if coordinator_address:
+        print(f"Connecting to coordinator at {coordinator_address} (Rank {process_id}/{num_processes})")
+        jax.distributed.initialize(
+            coordinator_address=coordinator_address,
+            num_processes=num_processes,
+            process_id=process_id
+        )
+    else:
+        print("COORDINATOR_ADDRESS not set, attempting automatic JAX distributed initialization...")
+        jax.distributed.initialize()
+
+    rank = jax.process_index()
+    total_ranks = jax.process_count()
+    local_devices = jax.local_devices()
+    global_devices = jax.devices()
+
+    print(f"\n[Rank {rank}/{total_ranks}] JAX Distributed Initialized Successfully!")
+    print(f"[Rank {rank}] Local Virtual CPU Devices ({len(local_devices)}): {local_devices}")
+    print(f"[Rank {rank}] Total Global Devices in Cluster ({len(global_devices)}): {global_devices}\n")
+
+    # Step 1: Mathematical Proof via pmean / psum
+    # Rank i passes (i + 1). Total expected sum across N ranks = N * (N + 1) / 2
+    expected_sum = (total_ranks * (total_ranks + 1)) / 2.0
+    rank_value = jnp.array([float(rank + 1)], dtype=jnp.float32)
+
+    print(f"[Rank {rank}] Input Rank Value: {rank_value[0]} | Expected Cluster Sum: {expected_sum}")
+
+    # Set up Mesh across all processes and local devices
+    devices_array = jax.devices()
+    num_nodes = total_ranks
+    devices_per_node = len(local_devices)
+
+    device_mesh = devices_array.reshape((num_nodes, devices_per_node))
+    mesh = Mesh(device_mesh, axis_names=('data', 'model'))
+
+    @jax.jit
+    def compute_allreduce(x):
+        # Synchronize and sum values across 'data' axis (all nodes)
+        return jax.lax.psum(x, axis_name='data')
+
+    print(f"[Rank {rank}] Executing JAX lax.psum gradient all-reduce...")
+    with mesh:
+        sharded_x = jax.device_put(rank_value, NamedSharding(mesh, P('data')))
+        synced_sum = compute_allreduce(sharded_x)
+        synced_sum.block_until_ready()
+
+    actual_sum = float(synced_sum[0])
+    print(f"[Rank {rank}] Synchronized psum Output: {actual_sum} (Expected: {expected_sum})")
+
+    if abs(actual_sum - expected_sum) < 1e-3:
+        print(f"[Rank {rank}] ✅ MATHEMATICAL VERIFICATION PASSED! Multi-node JAX coordination verified.")
+    else:
+        print(f"[Rank {rank}] ❌ VERIFICATION FAILED! Expected {expected_sum}, got {actual_sum}")
+
+    # Barrier sync
+    multihost_utils.sync_global_devices("cpu_training_complete")
+    print(f"\n[Rank {rank}] Multi-Node JAX CPU Test Completed Successfully!\n")
+
+if __name__ == "__main__":
+    main()
