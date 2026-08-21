@@ -29,46 +29,81 @@ Welcome to the production-ready learning plan and runbook for scaling **JAX mult
 
 ---
 
+## 📋 Prerequisites & GCP Account Setup
+
+Before running the interactive notebooks or terminal scripts, ensure you have:
+
+1. **Google Cloud Project & Billing**:
+   - A GCP Project ID with active billing enabled.
+2. **Required IAM Permissions**:
+   - `Kubernetes Engine Admin` (`roles/container.admin`)
+   - `Artifact Registry Administrator` (`roles/artifactregistry.admin`)
+   - `Cloud Build Editor` (`roles/cloudbuild.builds.editor`)
+   - `Compute Network Admin` (`roles/compute.networkAdmin`)
+   - `Storage Admin` (`roles/storage.admin`)
+3. **Authentication**:
+   - **Google Colab**: Authenticate via `from google.colab import auth; auth.authenticate_user()` (included in Module 00).
+   - **Local Terminal**: Run `gcloud auth login` and `gcloud auth application-default login`.
+
+---
+
 ## 📐 System Architecture Overview
 
 For module-by-module architecture diagrams, see **[`ARCHITECTURE.md`](ARCHITECTURE.md)**.
 
 ![JAX Multi-Node GKE Architecture Diagram](assets/jax_gke_architecture_diagram.jpg)
 
-```mermaid
-graph TD
-    subgraph GCP["Google Cloud Project (PROJECT_ID)"]
-        subgraph VPC["Custom VPC Network (jax-network)"]
-            subgraph Subnet["Subnet (jax-subnet: 10.0.0.0/20)"]
-                PodRange["Pods Range: 10.4.0.0/14"]
-                SvcRange["Services Range: 10.8.0.0/20"]
-            end
-        end
+---
 
-        subgraph AR["Google Artifact Registry"]
-            CPUImg["jax-cpu-multinode:latest"]
-            GPUImg["jax-gpu-multinode:latest"]
-            TPUImg["jax-tpu-multinode:latest"]
-        end
+## 🚀 Interactive Notebook Series (Open in Colab)
 
-        subgraph GKE["GKE Standard Cluster (jax-distributed-cluster)"]
-            ControlPlane["GKE Control Plane (JobSet Controller v0.6.0)"]
-            HeadlessDNS["Headless DNS Service (jax-cpu-job)"]
-            
-            subgraph CPUNodes["Default CPU Node Pool (2 to 20 Nodes)"]
-                Pod0["Pod 0 (Rank 0 - Coordinator)\nIP: 10.4.0.5\n4 Virtual Devices"]
-                Pod1["Pod 1 (Rank 1 - Worker)\nIP: 10.4.0.6\n4 Virtual Devices"]
-                PodN["Pod N-1 (Rank N-1 - Worker)\nIP: 10.4.x.y\n4 Virtual Devices"]
-            end
-        end
-    end
+| Module | Notebook Title | Google Colab Link |
+| :--- | :--- | :--- |
+| **Module 00** | Environment & Custom VPC Setup | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/00_config_and_setup.ipynb) |
+| **Module 01** | GKE Standard Cluster & Operator Setup | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/01_gke_cluster_setup.ipynb) |
+| **Module 02** | Container Build & Artifact Registry | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/02_container_build.ipynb) |
+| **Module 03** | CPU Multi-Node & 10x Scale-Up | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/03_jax_cpu_multinode.ipynb) |
+| **Module 04** | GPU Multi-Node Training | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/04_jax_gpu_multinode.ipynb) |
+| **Module 05** | TPU Multi-Host Slice Training | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/05_jax_tpu_multinode.ipynb) |
+| **Module 06** | Complete Resource Teardown | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/06_cleanup.ipynb) |
 
-    ControlPlane -->|Manages Lifecycle| HeadlessDNS
-    ControlPlane -->|Gang Schedules| CPUNodes
-    Pod0 <-->|TCP Port 1234 / Headless DNS| Pod1
-    Pod0 <-->|TCP Port 1234 / Headless DNS| PodN
-    Pod1 <-->|jax.lax.psum All-Reduce| PodN
-    AR -->|Pull Images| CPUNodes
+---
+
+## 🖥️ Running via Terminal / CLI (Without Notebooks)
+
+You can run the entire workflow directly from your command-line terminal using the provided shell scripts in `scripts/`:
+
+### 1. Configure your GCP Project
+Edit `config.env` and set your `PROJECT_ID`:
+```bash
+PROJECT_ID="your-gcp-project-id"
+```
+
+### 2. Execute Shell Scripts & Deploy Workloads
+
+```bash
+# Step 00: Enable GCP APIs & Provision Custom VPC Network
+./scripts/00_setup_network.sh
+
+# Step 01: Create GKE Cluster & Install JobSet Operator
+./scripts/01_create_cluster.sh
+
+# Step 02: Build JAX Container Image via Cloud Build
+./scripts/02_build_image.sh
+
+# Step 03a: Render & Deploy CPU Multi-Node Training Job (Zero Quota)
+./scripts/03_run_cpu_multinode.sh
+
+# Step 03b: Deploy GPU Multi-Node Training Job (NVIDIA L4 / GPU Node Pool)
+# Render image in manifests/jobset-gpu.yaml and apply:
+sed "s|LOCATION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REGISTRY_REPO/GPU_IMAGE_NAME:IMAGE_TAG|${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/${GPU_IMAGE_NAME}:${IMAGE_TAG}|g" manifests/jobset-gpu.yaml | kubectl apply -f -
+
+# Step 03c: Deploy TPU Multi-Host Slice Job (TPU v5e / 2x4 Topology)
+# Render image in manifests/jobset-tpu.yaml and apply:
+sed "s|LOCATION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REGISTRY_REPO/TPU_IMAGE_NAME:IMAGE_TAG|${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/${TPU_IMAGE_NAME}:${IMAGE_TAG}|g" manifests/jobset-tpu.yaml | kubectl apply -f -
+
+# Step 06: Cleanup & Teardown All GCP Resources
+./scripts/06_cleanup.sh
 ```
 
 ---
@@ -83,6 +118,12 @@ graph TD
 ├── ARCHITECTURE.md                 # Detailed visual architecture diagrams for each module
 ├── assets/                         # Architecture diagram assets & images
 │   └── jax_gke_architecture_diagram.jpg
+├── scripts/                        # CLI Bash Scripts (Run without Jupyter Notebooks)
+│   ├── 00_setup_network.sh         # Step 00: VPC network & API setup script
+│   ├── 01_create_cluster.sh        # Step 01: GKE cluster & JobSet operator script
+│   ├── 02_build_image.sh           # Step 02: Container build via Cloud Build script
+│   ├── 03_run_cpu_multinode.sh     # Step 03: CPU multi-node JobSet execution script
+│   └── 06_cleanup.sh               # Step 06: Complete teardown & cleanup script
 ├── notebooks/                      # 7-Module Progressive Notebook Series
 │   ├── 00_config_and_setup.ipynb   # Module 00: VPC, Subnet & GCP API Setup
 │   ├── 01_gke_cluster_setup.ipynb  # Module 01: GKE Cluster & Operator Setup
@@ -123,18 +164,6 @@ GPU_IMAGE_NAME="jax-gpu-multinode"
 TPU_IMAGE_NAME="jax-tpu-multinode"
 IMAGE_TAG="latest"
 ```
-
----
-
-## 🚀 Notebook Execution Flow
-
-1. **[`00_config_and_setup.ipynb`](notebooks/00_config_and_setup.ipynb)**: Set project, activate APIs, create custom VPC subnet with IP aliasing.
-2. **[`01_gke_cluster_setup.ipynb`](notebooks/01_gke_cluster_setup.ipynb)**: Create GKE cluster with Shielded VMs & install JobSet operator.
-3. **[`02_container_build.ipynb`](notebooks/02_container_build.ipynb)**: Build CPU, GPU, and TPU JAX containers via Google Cloud Build.
-4. **[`03_jax_cpu_multinode.ipynb`](notebooks/03_jax_cpu_multinode.ipynb)**: Launch 2-Node CPU multi-node job (Expected sum = `3.0`), scale GKE cluster to 20 nodes, launch 20-Node JobSet (Expected sum = `210.0`).
-5. **[`04_jax_gpu_multinode.ipynb`](notebooks/04_jax_gpu_multinode.ipynb)**: Launch GPU multi-node training (If GPU quota available).
-6. **[`05_jax_tpu_multinode.ipynb`](notebooks/05_jax_tpu_multinode.ipynb)**: Launch TPU v5e 2x4 slice training (If TPU quota available).
-7. **[`06_cleanup.ipynb`](notebooks/06_cleanup.ipynb)**: Tear down JobSets, scale cluster down, and delete GCP resources.
 
 ---
 
