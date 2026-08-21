@@ -167,5 +167,23 @@ IMAGE_TAG="latest"
 
 ---
 
+## 🔗 Reference Assets & AI Hypercomputer Resources
+
+For further reference, advanced benchmarks, and official GCP AI Hypercomputer infrastructure guides, explore the following resources:
+
+1. **[Travolta JAX Multi-Node Training Repository](https://github.com/goabego/Travolta_Multinode_Training)**:
+   - **What it Provides**: The core hands-on learning repository containing a progressive 7-module Jupyter notebook series, automated CLI shell scripts, Docker container definitions, and Kubernetes JobSet manifests for scaling distributed JAX workloads across CPUs, GPUs, and TPUs on GKE.
+
+2. **[Google Cloud AI Hypercomputer GPU Recipes](https://github.com/AI-Hypercomputer/gpu-recipes)**:
+   - **What it Provides**: Official Google Cloud repository featuring benchmarked recipes, deployment patterns, and performance optimization guides for training and serving large language models (LLMs) and generative AI workloads using NVIDIA GPUs on GCP.
+
+3. **[Custom AI-Optimized GKE Clusters with A4X Max Documentation](https://docs.cloud.google.com/ai-hypercomputer/docs/create/gke-ai-hypercompute-custom-a4x-max)**:
+   - **What it Provides**: Step-by-step Google Cloud guide for creating custom AI-optimized GKE clusters using high-performance A4X Max instances (`a4x-maxgpu-4g-metal`) paired with GPUDirect RDMA for low-latency multi-node GPU communication.
+
+4. **[Creating Compute Engine A4X Max Instances Documentation](https://docs.cloud.google.com/ai-hypercomputer/docs/create/create-a4xmax-instance)**:
+   - **What it Provides**: Detailed Google Cloud documentation on provisioning standalone A4X Max VM instances on Compute Engine, covering placement policies, GPU driver installation, and custom hardware configurations.
+
+---
+
 ## Questions 
 Contact -> abrahamgomez@google.com
