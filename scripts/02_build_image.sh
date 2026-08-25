@@ -20,6 +20,16 @@ gcloud artifacts repositories create "${ARTIFACT_REGISTRY_REPO}" \
 
 gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 
+# Ensure Compute Engine Default Service Account has Storage Object Viewer & Logs Writer permissions for Cloud Build
+PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
+COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role="roles/storage.objectViewer" || true
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role="roles/logs.writer" || true
+
 CPU_FULL_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/${CPU_IMAGE_NAME}:${IMAGE_TAG}"
 
 echo "Building CPU JAX Image via Cloud Build: ${CPU_FULL_IMAGE}..."

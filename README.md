@@ -41,9 +41,20 @@ Before running the interactive notebooks or terminal scripts, ensure you have:
    - `Cloud Build Editor` (`roles/cloudbuild.builds.editor`)
    - `Compute Network Admin` (`roles/compute.networkAdmin`)
    - `Storage Admin` (`roles/storage.admin`)
-3. **Authentication**:
+3. **Authentication & Service Account Permissions**:
    - **Google Colab**: Authenticate via `from google.colab import auth; auth.authenticate_user()` (included in Module 00).
    - **Local Terminal**: Run `gcloud auth login` and `gcloud auth application-default login`.
+   - **Cloud Build Service Account**: Ensure the Compute default service account (`[PROJECT_NUMBER]-compute@developer.gserviceaccount.com`) has `roles/storage.objectViewer`, `roles/logs.writer`, and `roles/artifactregistry.writer` permissions (automatically configured in Step 00).
+
+> [!TIP]
+> **Troubleshooting `gcloud builds submit` 403 Permission Error (`could not resolve source ... storage.objects.get`):**
+> Newly created GCP projects enforce secure default service account policies where the default Compute Engine service account lacks storage object access. If you encounter a `403 storage.objects.get` error on `gcloud builds submit`, run:
+> ```bash
+> PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format="value(projectNumber)")
+> gcloud projects add-iam-policy-binding $(gcloud config get-value project) \
+>     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+>     --role="roles/storage.objectViewer"
+> ```
 
 ---
 

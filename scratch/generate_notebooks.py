@@ -144,6 +144,19 @@ SUBNET_NAME = cfg.get("SUBNET_NAME", "jax-subnet")
     cloudbuild.googleapis.com \\
     iam.googleapis.com \\
     compute.googleapis.com"""),
+    markdown_cell("## Configure IAM Permissions for Cloud Build Service Account"),
+    code_cell("""# Grant Cloud Build & GCS Storage permissions to the Compute Engine Default Service Account
+!PROJECT_NUMBER=$(gcloud projects describe {PROJECT_ID} --format="value(projectNumber)") && \\
+ gcloud projects add-iam-policy-binding {PROJECT_ID} \\
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \\
+    --role="roles/storage.objectViewer" && \\
+ gcloud projects add-iam-policy-binding {PROJECT_ID} \\
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \\
+    --role="roles/logs.writer" && \\
+ gcloud projects add-iam-policy-binding {PROJECT_ID} \\
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \\
+    --role="roles/artifactregistry.writer"
+"""),
     markdown_cell("## Provision Custom VPC & Subnet with IP Aliasing"),
     code_cell("""!gcloud compute networks create {NETWORK_NAME} --subnet-mode=custom"""),
     code_cell("""!gcloud compute networks subnets create {SUBNET_NAME} \\
