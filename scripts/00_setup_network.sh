@@ -46,7 +46,7 @@ echo "▶ [Step 1/5] Setting active gcloud project to ${PROJECT_ID}..."
 gcloud config set project "${PROJECT_ID}" --quiet
 
 echo ""
-echo "▶ [Step 2/5] Enabling required GKE, Container, Compute & Cloud Build APIs..."
+echo "▶ [Step 2/5] Enabling required GKE, Container, Compute & Cloud Build APIs in '${PROJECT_ID}'..."
 gcloud services enable \
     compute.googleapis.com \
     container.googleapis.com \
@@ -64,7 +64,7 @@ gcloud config set compute/zone "${ZONE}" --quiet
 # 4. Configure IAM Permissions for Cloud Build & Compute Default Service Account
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 3/5] Configuring IAM Service Account Permissions for Cloud Build..."
+echo "▶ [Step 3/5] Configuring IAM Service Account Permissions for Cloud Build in '${PROJECT_ID}'..."
 PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
 COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 CLOUDBUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
@@ -90,35 +90,37 @@ gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
 # 5. Provision Custom VPC & Subnet with Secondary IP Ranges (IP-Aliasing)
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 4/5] Provisioning Custom VPC Network (${NETWORK_NAME})..."
-if ! gcloud compute networks describe "${NETWORK_NAME}" >/dev/null 2>&1; then
-    gcloud compute networks create "${NETWORK_NAME}" --subnet-mode=custom
+echo "▶ [Step 4/5] Provisioning Custom VPC Network (${NETWORK_NAME}) in '${PROJECT_ID}'..."
+if ! gcloud compute networks describe "${NETWORK_NAME}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+    gcloud compute networks create "${NETWORK_NAME}" --project="${PROJECT_ID}" --subnet-mode=custom
 else
-    echo "VPC network '${NETWORK_NAME}' already exists."
+    echo "VPC network '${NETWORK_NAME}' already exists in '${PROJECT_ID}'."
 fi
 
 echo ""
 echo "▶ [Step 5/5] Provisioning Custom Subnet (${SUBNET_NAME}) with secondary IP ranges for Pods and Services..."
-if ! gcloud compute networks subnets describe "${SUBNET_NAME}" --region="${REGION}" >/dev/null 2>&1; then
+if ! gcloud compute networks subnets describe "${SUBNET_NAME}" --project="${PROJECT_ID}" --region="${REGION}" >/dev/null 2>&1; then
     gcloud compute networks subnets create "${SUBNET_NAME}" \
+        --project="${PROJECT_ID}" \
         --network="${NETWORK_NAME}" \
         --region="${REGION}" \
         --range=10.0.0.0/20 \
         --secondary-range=pods-range=10.4.0.0/14,services-range=10.8.0.0/20 \
         --enable-private-ip-google-access
 else
-    echo "Subnet '${SUBNET_NAME}' already exists. Ensuring Private Google Access is enabled..."
-    gcloud compute networks subnets update "${SUBNET_NAME}" --region="${REGION}" --enable-private-ip-google-access --quiet || true
+    echo "Subnet '${SUBNET_NAME}' already exists in '${PROJECT_ID}'. Ensuring Private Google Access is enabled..."
+    gcloud compute networks subnets update "${SUBNET_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --enable-private-ip-google-access --quiet || true
 fi
 
 # Configure Cloud Router & NAT for secure outbound internet access without public node IPs (Org Policy compliant)
 echo "Configuring Cloud Router and Cloud NAT for private node outbound connectivity..."
-if ! gcloud compute routers describe "${NETWORK_NAME}-router" --region="${REGION}" >/dev/null 2>&1; then
-    gcloud compute routers create "${NETWORK_NAME}-router" --network="${NETWORK_NAME}" --region="${REGION}" --quiet || true
+if ! gcloud compute routers describe "${NETWORK_NAME}-router" --project="${PROJECT_ID}" --region="${REGION}" >/dev/null 2>&1; then
+    gcloud compute routers create "${NETWORK_NAME}-router" --project="${PROJECT_ID}" --network="${NETWORK_NAME}" --region="${REGION}" --quiet || true
 fi
 
-if ! gcloud compute routers nats describe "${NETWORK_NAME}-nat" --router="${NETWORK_NAME}-router" --region="${REGION}" >/dev/null 2>&1; then
+if ! gcloud compute routers nats describe "${NETWORK_NAME}-nat" --project="${PROJECT_ID}" --router="${NETWORK_NAME}-router" --region="${REGION}" >/dev/null 2>&1; then
     gcloud compute routers nats create "${NETWORK_NAME}-nat" \
+        --project="${PROJECT_ID}" \
         --router="${NETWORK_NAME}-router" \
         --region="${REGION}" \
         --auto-allocate-nat-external-ips \
@@ -130,4 +132,4 @@ echo ""
 echo "=============================================================================="
 echo "✅ Module 00 Setup Complete! Subnet Status:"
 echo "=============================================================================="
-gcloud compute networks subnets describe "${SUBNET_NAME}" --region="${REGION}" --format="table(name,network.basename(),ipCidrRange,secondaryIpRanges[].rangeName,privateIpGoogleAccess)"
+gcloud compute networks subnets describe "${SUBNET_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --format="table(name,network.basename(),ipCidrRange,secondaryIpRanges[].rangeName,privateIpGoogleAccess)"

@@ -21,3 +21,19 @@ ENV/
 
 # Generated / Rendered Kubernetes Manifests
 manifests/*-rendered.yaml
+
+# Terraform artifacts & state
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+

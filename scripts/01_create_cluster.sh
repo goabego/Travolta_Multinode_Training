@@ -30,6 +30,7 @@ fi
 echo "=============================================================================="
 echo "📘 MODULE 01: GKE Standard Cluster & Accelerator Node Pools Setup"
 echo "=============================================================================="
+echo "Project ID:      ${PROJECT_ID}"
 echo "Cluster Name:    ${CLUSTER_NAME}"
 echo "Zone:            ${ZONE}"
 echo "VPC Network:     ${NETWORK_NAME}"
@@ -41,16 +42,17 @@ echo "==========================================================================
 # 2. Provision GKE Base Standard Cluster with Shielded VM & Private Nodes
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 1/5] Creating GKE Cluster '${CLUSTER_NAME}' with Workload Identity & Private Nodes..."
+echo "▶ [Step 1/5] Creating GKE Cluster '${CLUSTER_NAME}' in project '${PROJECT_ID}' with Workload Identity & Private Nodes..."
 
 # If cluster exists in ERROR state, delete it first
-if gcloud container clusters describe "${CLUSTER_NAME}" --zone="${ZONE}" --format="value(status)" 2>/dev/null | grep -q "ERROR"; then
+if gcloud container clusters describe "${CLUSTER_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}" --format="value(status)" 2>/dev/null | grep -q "ERROR"; then
     echo "⚠️ Existing cluster is in ERROR state. Recreating..."
-    gcloud container clusters delete "${CLUSTER_NAME}" --zone="${ZONE}" --quiet
+    gcloud container clusters delete "${CLUSTER_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}" --quiet
 fi
 
-if ! gcloud container clusters describe "${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
+if ! gcloud container clusters describe "${CLUSTER_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}" >/dev/null 2>&1; then
     gcloud container clusters create "${CLUSTER_NAME}" \
+        --project="${PROJECT_ID}" \
         --zone="${ZONE}" \
         --release-channel=regular \
         --workload-pool="${PROJECT_ID}.svc.id.goog" \
@@ -65,7 +67,7 @@ if ! gcloud container clusters describe "${CLUSTER_NAME}" --zone="${ZONE}" >/dev
         --num-nodes="${CPU_NODE_COUNT:-2}" \
         --machine-type=e2-standard-4
 else
-    echo "GKE Cluster '${CLUSTER_NAME}' already exists."
+    echo "GKE Cluster '${CLUSTER_NAME}' already exists in project '${PROJECT_ID}'."
 fi
 
 # ------------------------------------------------------------------------------
@@ -73,7 +75,7 @@ fi
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶ [Step 2/5] Fetching cluster credentials for kubectl..."
-gcloud container clusters get-credentials "${CLUSTER_NAME}" --zone="${ZONE}"
+gcloud container clusters get-credentials "${CLUSTER_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}"
 
 echo ""
 echo "▶ [Step 3/5] Installing Kubernetes JobSet Controller (${JOBSET_VERSION})..."
@@ -99,8 +101,9 @@ done
 if [ "$WITH_GPU" = true ]; then
     echo ""
     echo "▶ [Optional] Provisioning GPU Node Pool (${GPU_NODE_POOL_NAME})..."
-    if ! gcloud container node-pools describe "${GPU_NODE_POOL_NAME}" --cluster="${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
+    if ! gcloud container node-pools describe "${GPU_NODE_POOL_NAME}" --project="${PROJECT_ID}" --cluster="${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
         gcloud container node-pools create "${GPU_NODE_POOL_NAME}" \
+            --project="${PROJECT_ID}" \
             --cluster="${CLUSTER_NAME}" \
             --zone="${ZONE}" \
             --machine-type="${GPU_MACHINE_TYPE}" \
@@ -114,8 +117,9 @@ fi
 if [ "$WITH_TPU" = true ]; then
     echo ""
     echo "▶ [Optional] Provisioning TPU Node Pool (${TPU_NODE_POOL_NAME})..."
-    if ! gcloud container node-pools describe "${TPU_NODE_POOL_NAME}" --cluster="${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
+    if ! gcloud container node-pools describe "${TPU_NODE_POOL_NAME}" --project="${PROJECT_ID}" --cluster="${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
         gcloud container node-pools create "${TPU_NODE_POOL_NAME}" \
+            --project="${PROJECT_ID}" \
             --cluster="${CLUSTER_NAME}" \
             --zone="${ZONE}" \
             --node-locations="${ZONE}" \

@@ -23,5 +23,6 @@ RUN pip install --no-cache-dir \
 
 WORKDIR /app
 COPY jax_cpu_test.py /app/jax_cpu_test.py
+COPY jax_cpu_train_toy_model.py /app/jax_cpu_train_toy_model.py
 
 CMD ["python", "jax_cpu_test.py"]

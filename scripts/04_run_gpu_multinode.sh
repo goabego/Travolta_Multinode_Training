@@ -44,9 +44,10 @@ echo "==========================================================================
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶ [Step 1/5] Checking GPU Node Pool Status..."
-if ! gcloud container node-pools describe "${GPU_NODE_POOL_NAME}" --cluster="${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
+if ! gcloud container node-pools describe "${GPU_NODE_POOL_NAME}" --project="${PROJECT_ID}" --cluster="${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
     echo "Creating GPU Node Pool (${GPU_NODE_POOL_NAME}) with ${GPU_NODE_COUNT} nodes (${GPU_MACHINE_TYPE} / ${GPU_TYPE})..."
     gcloud container node-pools create "${GPU_NODE_POOL_NAME}" \
+        --project="${PROJECT_ID}" \
         --cluster="${CLUSTER_NAME}" \
         --zone="${ZONE}" \
         --machine-type="${GPU_MACHINE_TYPE}" \
@@ -56,7 +57,7 @@ if ! gcloud container node-pools describe "${GPU_NODE_POOL_NAME}" --cluster="${C
             echo "Continuing to attempt JobSet deployment if nodes exist..."
         }
 else
-    echo "GPU Node Pool '${GPU_NODE_POOL_NAME}' already exists."
+    echo "GPU Node Pool '${GPU_NODE_POOL_NAME}' already exists in '${PROJECT_ID}'."
 fi
 
 # ------------------------------------------------------------------------------
