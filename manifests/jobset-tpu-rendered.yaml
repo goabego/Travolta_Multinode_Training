@@ -1,0 +1,60 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: jax-tpu-job
+  namespace: default
+  annotations:
+    alpha.jobset.sigs.k8s.io/exclusive-topology: cloud.google.com/gke-nodepool
+spec:
+  failurePolicy:
+    maxRestarts: 2
+  network:
+    enableDNSHostnames: true
+    subdomain: jax-tpu-job
+  replicatedJobs:
+    - name: workers
+      replicas: 1
+      template:
+        spec:
+          parallelism: 2
+          completions: 2
+          backoffLimit: 0
+          completionMode: Indexed
+          template:
+            metadata:
+              labels:
+                jobset.x-k8s.io/jobset-name: jax-tpu-job
+            spec:
+              subdomain: jax-tpu-job
+              nodeSelector:
+                cloud.google.com/gke-tpu-accelerator: tpu-v5-lite-podslice
+                cloud.google.com/gke-tpu-topology: 2x4
+              restartPolicy: Never
+              containers:
+                - name: jax-tpu-worker
+                  image: us-central1-docker.pkg.dev/multinode-gke-test/jax-gke-repo/jax-tpu-multinode:latest
+                  securityContext:
+                    privileged: true
+                  ports:
+                    - containerPort: 8471
+                      name: tpu-ici
+                    - containerPort: 8080
+                      name: coordinator
+                  env:
+                    - name: JOB_COMPLETION_INDEX
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                    - name: NUM_PROCESSES
+                      value: "2"
+                    - name: PROCESS_ID
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                    - name: COORDINATOR_ADDRESS
+                      value: "jax-tpu-job-workers-0-0.jax-tpu-job.default.svc.cluster.local:8080"
+                  resources:
+                    limits:
+                      google.com/tpu: "4"
+                    requests:
+                      google.com/tpu: "4"

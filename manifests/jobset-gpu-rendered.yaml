@@ -1,0 +1,68 @@
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: jax-gpu-job
+  namespace: default
+spec:
+  failurePolicy:
+    maxRestarts: 2
+  network:
+    enableDNSHostnames: true
+    subdomain: jax-gpu-job
+  replicatedJobs:
+    - name: workers
+      replicas: 1
+      template:
+        spec:
+          parallelism: 2
+          completions: 2
+          backoffLimit: 0
+          completionMode: Indexed
+          template:
+            metadata:
+              labels:
+                jobset.x-k8s.io/jobset-name: jax-gpu-job
+            spec:
+              subdomain: jax-gpu-job
+              affinity:
+                podAntiAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    - labelSelector:
+                        matchExpressions:
+                          - key: jobset.x-k8s.io/jobset-name
+                            operator: In
+                            values: ["jax-gpu-job"]
+                      topologyKey: "kubernetes.io/hostname"
+              nodeSelector:
+                cloud.google.com/gke-nodepool: gpu-pool
+              restartPolicy: Never
+              containers:
+                - name: jax-gpu-worker
+                  image: us-central1-docker.pkg.dev/multinode-gke-test/jax-gke-repo/jax-gpu-multinode:latest
+                  ports:
+                    - containerPort: 1234
+                      name: coordinator
+                  securityContext:
+                    privileged: true
+                  env:
+                    - name: JOB_COMPLETION_INDEX
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                    - name: NUM_PROCESSES
+                      value: "2"
+                    - name: PROCESS_ID
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                    - name: COORDINATOR_ADDRESS
+                      value: "jax-gpu-job-workers-0-0.jax-gpu-job.default.svc.cluster.local:1234"
+                  resources:
+                    limits:
+                      nvidia.com/gpu: "1"
+                      memory: "16Gi"
+                      cpu: "4"
+                    requests:
+                      nvidia.com/gpu: "1"
+                      memory: "16Gi"
+                      cpu: "4"
