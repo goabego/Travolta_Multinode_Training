@@ -126,18 +126,25 @@ run_part_b() {
 
     echo ""
     echo "▶ [Step B.4] Monitoring 20 Pods Scheduling Across 20 Physical Nodes..."
-    for i in {1..8}; do
-        kubectl get jobset jax-scale-job || true
-        sleep 5
+    echo "Waiting for all 20 worker pods to initialize and execute..."
+    for i in {1..30}; do
+        RUNNING_OR_DONE=$(kubectl get pods -l jobset.sigs.k8s.io/jobset-name=jax-scale-job --no-headers 2>/dev/null | grep -E "Running|Completed|Succeeded" | wc -l | tr -d ' ')
+        if [[ "${RUNNING_OR_DONE}" -ge 20 ]]; then
+            echo "All 20 pods are running or completed (${RUNNING_OR_DONE}/20)."
+            break
+        fi
+        echo "Waiting for pods to start (${RUNNING_OR_DONE:-0}/20 running or completed)..."
+        sleep 3
     done
 
     echo ""
     echo "Verifying 20-Pod Physical Node Distribution:"
-    kubectl get pods -l jobset.x-k8s.io/jobset-name=jax-scale-job -o custom-columns=POD_NAME:.metadata.name,POD_IP:.status.podIP,NODE:.spec.nodeName,STATUS:.status.phase
+    kubectl get pods -l jobset.sigs.k8s.io/jobset-name=jax-scale-job -o custom-columns=POD_NAME:.metadata.name,POD_IP:.status.podIP,NODE:.spec.nodeName,STATUS:.status.phase
 
     echo ""
     echo "▶ [Step B.5] Streaming Cross-Node Logs & Validating Mathematical Sum (Expected Sum: 210.0)..."
-    kubectl logs -l jobset.x-k8s.io/jobset-name=jax-scale-job --all-containers=true --prefix=true --max-log-requests=25 || true
+    sleep 5
+    kubectl logs -l jobset.sigs.k8s.io/jobset-name=jax-scale-job -c jax-cpu-worker --tail=30 --prefix=true --max-log-requests=25 || true
     echo ""
     echo "✅ Part B (10x Scale-Up) Complete!"
 }
