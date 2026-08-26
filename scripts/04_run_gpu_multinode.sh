@@ -51,9 +51,7 @@ if ! gcloud container node-pools describe "${GPU_NODE_POOL_NAME}" --cluster="${C
         --zone="${ZONE}" \
         --machine-type="${GPU_MACHINE_TYPE}" \
         --accelerator=type="${GPU_TYPE}",count="${GPU_COUNT_PER_NODE}",gpu-driver-version=default \
-        --num-nodes="${GPU_NODE_COUNT}" \
-        --shielded-secure-boot \
-        --shielded-integrity-monitoring || {
+        --num-nodes="${GPU_NODE_COUNT}" || {
             echo "⚠️ Warning: Failed to create GPU node pool. Quota may be restricted in ${ZONE}."
             echo "Continuing to attempt JobSet deployment if nodes exist..."
         }

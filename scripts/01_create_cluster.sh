@@ -41,7 +41,7 @@ echo "==========================================================================
 # 2. Provision GKE Base Standard Cluster with Shielded VM & Private Nodes
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 1/5] Creating GKE Cluster '${CLUSTER_NAME}' with Shielded VM, Workload Identity & Private Nodes..."
+echo "▶ [Step 1/5] Creating GKE Cluster '${CLUSTER_NAME}' with Workload Identity & Private Nodes..."
 
 # If cluster exists in ERROR state, delete it first
 if gcloud container clusters describe "${CLUSTER_NAME}" --zone="${ZONE}" --format="value(status)" 2>/dev/null | grep -q "ERROR"; then
@@ -62,9 +62,6 @@ if ! gcloud container clusters describe "${CLUSTER_NAME}" --zone="${ZONE}" >/dev
         --subnetwork="${SUBNET_NAME}" \
         --cluster-secondary-range-name=pods-range \
         --services-secondary-range-name=services-range \
-        --enable-shielded-nodes \
-        --shielded-secure-boot \
-        --shielded-integrity-monitoring \
         --num-nodes="${CPU_NODE_COUNT:-2}" \
         --machine-type=e2-standard-4
 else
@@ -108,9 +105,7 @@ if [ "$WITH_GPU" = true ]; then
             --zone="${ZONE}" \
             --machine-type="${GPU_MACHINE_TYPE}" \
             --accelerator=type="${GPU_TYPE}",count="${GPU_COUNT_PER_NODE}" \
-            --num-nodes="${GPU_NODE_COUNT}" \
-            --shielded-secure-boot \
-            --shielded-integrity-monitoring || echo "Warning: GPU pool creation failed (check quota)."
+            --num-nodes="${GPU_NODE_COUNT}" || echo "Warning: GPU pool creation failed (check quota)."
         
         kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/ubuntu/daemonset-unified.yaml || true
     fi
@@ -126,8 +121,6 @@ if [ "$WITH_TPU" = true ]; then
             --node-locations="${ZONE}" \
             --machine-type="${TPU_MACHINE_TYPE}" \
             --tpu-topology="${TPU_TOPOLOGY}" \
-            --shielded-secure-boot \
-            --shielded-integrity-monitoring \
             --num-nodes="${TPU_NODE_COUNT}" || echo "Warning: TPU pool creation failed (check quota)."
     fi
 fi

@@ -53,8 +53,6 @@ if ! gcloud container node-pools describe "${TPU_NODE_POOL_NAME}" --cluster="${C
         --node-locations="${ZONE}" \
         --machine-type="${TPU_MACHINE_TYPE}" \
         --tpu-topology="${TPU_TOPOLOGY}" \
-        --shielded-secure-boot \
-        --shielded-integrity-monitoring \
         --num-nodes="${TPU_NODE_COUNT}" || {
             echo "⚠️ Warning: Failed to create TPU node pool. Quota may be restricted in ${ZONE}."
             echo "Continuing to attempt JobSet deployment if nodes exist..."
