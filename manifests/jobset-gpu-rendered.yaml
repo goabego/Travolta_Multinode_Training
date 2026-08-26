@@ -38,7 +38,7 @@ spec:
               restartPolicy: Never
               containers:
                 - name: jax-gpu-worker
-                  image: us-central1-docker.pkg.dev/multinode-gke-test/jax-gke-repo/jax-gpu-multinode:latest
+                  image: us-central1-docker.pkg.dev/multinode-gke-dev-test/jax-gke-repo/jax-gpu-multinode:latest
                   ports:
                     - containerPort: 1234
                       name: coordinator

@@ -32,7 +32,7 @@ spec:
               restartPolicy: Never
               containers:
                 - name: jax-tpu-worker
-                  image: us-central1-docker.pkg.dev/multinode-gke-test/jax-gke-repo/jax-tpu-multinode:latest
+                  image: us-central1-docker.pkg.dev/multinode-gke-dev-test/jax-gke-repo/jax-tpu-multinode:latest
                   securityContext:
                     privileged: true
                   ports:
