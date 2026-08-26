@@ -6,12 +6,14 @@ This document provides visual architecture diagrams and explanations for each mo
 
 ## 🏗️ High-Level System Architecture
 
-![JAX Multi-Node GKE System Architecture](/Users/abrahamgomez/travolta/assets/jax_gke_architecture_diagram.jpg)
+![JAX Multi-Node GKE System Architecture](assets/jax_gke_architecture_diagram.jpg)
 
 ```mermaid
 graph TD
     subgraph GCP["Google Cloud Project (PROJECT_ID)"]
         subgraph VPC["Custom VPC Network (jax-network)"]
+            Router["Cloud Router (jax-network-router)"]
+            NAT["Cloud NAT (jax-network-nat)"]
             subgraph Subnet["Subnet (jax-subnet: 10.0.0.0/20)"]
                 PodRange["Pods Range: 10.4.0.0/14"]
                 SvcRange["Services Range: 10.8.0.0/20"]
@@ -28,7 +30,7 @@ graph TD
             ControlPlane["GKE Control Plane (JobSet Controller v0.12.0)"]
             HeadlessDNS["Headless DNS Service (jax-cpu-job)"]
             
-            subgraph CPUNodes["Default CPU Node Pool (2 to 20 Nodes)"]
+            subgraph CPUNodes["Default CPU Node Pool (2 to 20 Private Nodes)"]
                 Pod0["Pod 0 (Rank 0 - Coordinator)\nIP: 10.4.0.5\n4 Virtual Devices"]
                 Pod1["Pod 1 (Rank 1 - Worker)\nIP: 10.4.0.6\n4 Virtual Devices"]
                 PodN["Pod N-1 (Rank N-1 - Worker)\nIP: 10.4.x.y\n4 Virtual Devices"]
@@ -36,6 +38,8 @@ graph TD
         end
     end
 
+    Router --> NAT
+    NAT -->|Internet Egress for Private Nodes| CPUNodes
     ControlPlane -->|Manages Lifecycle| HeadlessDNS
     ControlPlane -->|Gang Schedules| CPUNodes
     Pod0 <-->|TCP Port 1234 / Headless DNS| Pod1
@@ -48,27 +52,28 @@ graph TD
 
 ## 📘 Module 00: Environment & Custom VPC Subnet Architecture
 
-Module 00 provisions an isolated, enterprise-compliant VPC network with dedicated secondary IP ranges for Kubernetes Pods and Services.
+Module 00 provisions an isolated, enterprise-compliant VPC network with dedicated secondary IP ranges for Kubernetes Pods and Services, along with a Cloud Router and Cloud NAT for secure outbound egress from private nodes.
 
 ```mermaid
 flowchart LR
-    User["gcloud CLI / Notebook 00"] -->|1. Enable Cloud APIs| APIs["Container, ArtifactRegistry, CloudBuild APIs"]
+    User["gcloud CLI / 00_setup_network.sh"] -->|1. Enable Cloud APIs| APIs["Container, ArtifactRegistry, CloudBuild APIs"]
     User -->|2. Create Network| VPC["Custom VPC (jax-network)"]
     VPC -->|3. Create Subnet| Subnet["Custom Subnet (jax-subnet: 10.0.0.0/20)"]
     Subnet --> Secondary1["Secondary Range: pods-range (10.4.0.0/14)"]
     Subnet --> Secondary2["Secondary Range: services-range (10.8.0.0/20)"]
+    Subnet --> NAT["Cloud Router & Cloud NAT (jax-network-nat)"]
 ```
 
 ---
 
 ## 📗 Module 01: GKE Cluster & JobSet Controller Setup
 
-Module 01 creates a GKE Standard Cluster with Shielded VM security flags and installs the **Kubernetes JobSet Operator**.
+Module 01 creates a GKE Standard Cluster with Private Nodes and Workload Identity, then installs the **Kubernetes JobSet Operator (v0.12.0)**.
 
 ```mermaid
 graph TD
     subgraph GKECluster["GKE Cluster Provisioning (Module 01)"]
-        Flags["Cluster Security Flags:\n- Workload Identity\n- Shielded Secure Boot\n- Shielded Integrity Monitoring\n- IP Aliasing"]
+        Flags["Cluster Architecture Flags:\n- Workload Identity\n- Private Nodes (No Public IPs)\n- Cloud NAT Outbound Egress\n- IP Aliasing"]
         
         JobSetCRD["Install JobSet Operator (v0.12.0)\nkubectl apply --server-side"]
         
@@ -134,7 +139,7 @@ sequenceDiagram
     K8s->>Rank1: Start Pod 1 (batch.kubernetes.io/job-completion-index=1)
     
     Rank0->>Rank0: jax.distributed.initialize(COORDINATOR_ADDRESS=0.0.0.0:1234)
-    Rank1->>DNS: Resolve jax-cpu-job-workers-0-0.jax-cpu-job:1234
+    Rank1->>DNS: Resolve jax-cpu-job-workers-0-0.jax-cpu-job.default.svc.cluster.local:1234
     DNS-->>Rank1: Return IP 10.4.0.5
     Rank1->>Rank0: Connect to Rank 0 Coordinator on Port 1234
     
@@ -164,7 +169,7 @@ graph LR
 
 ## 📘 Module 04: Multi-Node JAX GPU Training (NCCL Ring All-Reduce)
 
-Module 04 orchestrates multi-node GPU training over NVIDIA NCCL interconnect.
+Module 04 orchestrates multi-node GPU training over NVIDIA NCCL interconnect across dedicated `g2-standard-8` (NVIDIA L4) nodes.
 
 ```mermaid
 graph TD
@@ -183,21 +188,21 @@ graph TD
 
 ## 📗 Module 05: Multi-Host TPU Slice Training (ICI Interconnect)
 
-Module 05 deploys a TPU v5e multi-host slice (2x4 topology) connected via Inter-Chip Interconnect (ICI).
+Module 05 deploys a TPU v5e multi-host slice (`2x4` topology, 8 total TPU chips) connected via Inter-Chip Interconnect (ICI).
 
 ```mermaid
 graph TD
     subgraph TPUSlice["TPU v5e Podslice (2x4 Topology)"]
-        subgraph TPUHost0["TPU Host 0"]
+        subgraph TPUHost0["TPU Host 0 (ct5lp-hightpu-4t)"]
             TPUPod0["Worker 0 (Rank 0)\n4x TPU v5e Chips\nContainer Ports: 8471, 8080"]
         end
 
-        subgraph TPUHost1["TPU Host 1"]
+        subgraph TPUHost1["TPU Host 1 (ct5lp-hightpu-4t)"]
             TPUPod1["Worker 1 (Rank 1)\n4x TPU v5e Chips\nContainer Ports: 8471, 8080"]
         end
     end
 
-    TPUPod0 <-->|High-Speed ICI Interconnect| TPUPod1
+    TPUPod0 <-->|High-Speed ICI Interconnect (Port 8471)| TPUPod1
 ```
 
 ---
@@ -212,5 +217,6 @@ flowchart TD
     Step2 --> Step3["3. Delete Accelerator Pools\n(GPU & TPU Node Pools)"]
     Step3 --> Step4["4. Delete Artifact Registry Repository\n(gcloud artifacts repositories delete)"]
     Step4 --> Step5["5. Delete GKE Cluster\n(gcloud container clusters delete)"]
-    Step5 --> Step6["6. Delete Custom Subnet & VPC Network\n(gcloud compute networks subnets/networks delete)"]
+    Step5 --> Step6["6. Delete Cloud NAT & Cloud Router\n(gcloud compute routers nats/routers delete)"]
+    Step6 --> Step7["7. Delete Custom Subnet & VPC Network\n(gcloud compute networks subnets/networks delete)"]
 ```
