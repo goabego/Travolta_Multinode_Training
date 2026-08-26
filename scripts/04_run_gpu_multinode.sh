@@ -81,10 +81,13 @@ kubectl apply -f "${ROOT_DIR}/manifests/jobset-gpu-rendered.yaml"
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶ [Step 4/5] Monitoring GPU Pod Initialization and Node Placement..."
-for i in {1..8}; do
-    kubectl get jobset jax-gpu-job || true
-    kubectl get pods -l jobset.x-k8s.io/jobset-name=jax-gpu-job -o custom-columns=POD_NAME:.metadata.name,POD_IP:.status.podIP,NODE:.spec.nodeName,STATUS:.status.phase
-    sleep 5
+for i in {1..20}; do
+    kubectl get pods -l jobset.x-k8s.io/jobset-name=jax-gpu-job -o custom-columns=POD_NAME:.metadata.name,POD_IP:.status.podIP,NODE:.spec.nodeName,STATUS:.status.phase 2>/dev/null || true
+    STATUSES=$(kubectl get pods -l jobset.x-k8s.io/jobset-name=jax-gpu-job -o jsonpath='{.items[*].status.phase}' 2>/dev/null || true)
+    if [[ "$STATUSES" == *"Succeeded"* ]] || [[ "$STATUSES" == *"Failed"* ]]; then
+        break
+    fi
+    sleep 8
 done
 
 # ------------------------------------------------------------------------------

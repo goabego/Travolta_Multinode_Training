@@ -83,10 +83,13 @@ kubectl apply -f "${ROOT_DIR}/manifests/jobset-tpu-rendered.yaml"
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶ [Step 4/5] Monitoring TPU Pod Initialization and Slice Placement..."
-for i in {1..8}; do
-    kubectl get jobset jax-tpu-job || true
-    kubectl get pods -l jobset.x-k8s.io/jobset-name=jax-tpu-job -o custom-columns=POD_NAME:.metadata.name,POD_IP:.status.podIP,NODE:.spec.nodeName,STATUS:.status.phase
-    sleep 5
+for i in {1..20}; do
+    kubectl get pods -l jobset.x-k8s.io/jobset-name=jax-tpu-job -o custom-columns=POD_NAME:.metadata.name,POD_IP:.status.podIP,NODE:.spec.nodeName,STATUS:.status.phase 2>/dev/null || true
+    STATUSES=$(kubectl get pods -l jobset.x-k8s.io/jobset-name=jax-tpu-job -o jsonpath='{.items[*].status.phase}' 2>/dev/null || true)
+    if [[ "$STATUSES" == *"Succeeded"* ]] || [[ "$STATUSES" == *"Failed"* ]]; then
+        break
+    fi
+    sleep 8
 done
 
 # ------------------------------------------------------------------------------
