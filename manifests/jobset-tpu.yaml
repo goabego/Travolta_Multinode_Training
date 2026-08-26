@@ -8,6 +8,9 @@ metadata:
 spec:
   failurePolicy:
     maxRestarts: 2
+  network:
+    enableDNSHostnames: true
+    subdomain: jax-tpu-job
   replicatedJobs:
     - name: workers
       replicas: 1
@@ -22,6 +25,7 @@ spec:
               labels:
                 jobset.x-k8s.io/jobset-name: jax-tpu-job
             spec:
+              subdomain: jax-tpu-job
               nodeSelector:
                 cloud.google.com/gke-tpu-accelerator: tpu-v5-lite-podslice
                 cloud.google.com/gke-tpu-topology: 2x4
@@ -33,7 +37,9 @@ spec:
                     privileged: true
                   ports:
                     - containerPort: 8471
+                      name: tpu-ici
                     - containerPort: 8080
+                      name: coordinator
                   env:
                     - name: JOB_COMPLETION_INDEX
                       valueFrom:

@@ -1,14 +1,14 @@
 apiVersion: jobset.x-k8s.io/v1alpha2
 kind: JobSet
 metadata:
-  name: jax-gpu-job
+  name: jax-cpu-job
   namespace: default
 spec:
   failurePolicy:
     maxRestarts: 2
   network:
     enableDNSHostnames: true
-    subdomain: jax-gpu-job
+    subdomain: jax-cpu-job
   replicatedJobs:
     - name: workers
       replicas: 1
@@ -21,9 +21,9 @@ spec:
           template:
             metadata:
               labels:
-                jobset.x-k8s.io/jobset-name: jax-gpu-job
+                jobset.x-k8s.io/jobset-name: jax-cpu-job
             spec:
-              subdomain: jax-gpu-job
+              subdomain: jax-cpu-job
               affinity:
                 podAntiAffinity:
                   requiredDuringSchedulingIgnoredDuringExecution:
@@ -31,24 +31,24 @@ spec:
                         matchExpressions:
                           - key: jobset.x-k8s.io/jobset-name
                             operator: In
-                            values: ["jax-gpu-job"]
+                            values: ["jax-cpu-job"]
                       topologyKey: "kubernetes.io/hostname"
               nodeSelector:
-                cloud.google.com/gke-nodepool: gpu-pool
+                cloud.google.com/gke-nodepool: default-pool
               restartPolicy: Never
               containers:
-                - name: jax-gpu-worker
-                  image: LOCATION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REGISTRY_REPO/GPU_IMAGE_NAME:IMAGE_TAG
+                - name: jax-cpu-worker
+                  image: us-central1-docker.pkg.dev/jax-multinode-1010/jax-gke-repo/jax-cpu-multinode:latest
                   ports:
                     - containerPort: 1234
                       name: coordinator
-                  securityContext:
-                    privileged: true
                   env:
                     - name: JOB_COMPLETION_INDEX
                       valueFrom:
                         fieldRef:
                           fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                    - name: XLA_FLAGS
+                      value: "--xla_force_host_platform_device_count=4"
                     - name: NUM_PROCESSES
                       value: "2"
                     - name: PROCESS_ID
@@ -56,13 +56,26 @@ spec:
                         fieldRef:
                           fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
                     - name: COORDINATOR_ADDRESS
-                      value: "jax-gpu-job-workers-0-0.jax-gpu-job.default.svc.cluster.local:1234"
+                      value: "jax-cpu-job-workers-0-0.jax-cpu-job.default.svc.cluster.local:1234"
                   resources:
-                    limits:
-                      nvidia.com/gpu: "1"
-                      memory: "16Gi"
-                      cpu: "4"
                     requests:
-                      nvidia.com/gpu: "1"
-                      memory: "16Gi"
-                      cpu: "4"
+                      cpu: "1500m"
+                      memory: "2Gi"
+                    limits:
+                      cpu: "2"
+                      memory: "4Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jax-cpu-job
+  namespace: default
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    jobset.x-k8s.io/jobset-name: jax-cpu-job
+  ports:
+    - port: 1234
+      targetPort: 1234
+      name: coordinator

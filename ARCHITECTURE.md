@@ -25,7 +25,7 @@ graph TD
         end
 
         subgraph GKE["GKE Standard Cluster (jax-distributed-cluster)"]
-            ControlPlane["GKE Control Plane (JobSet Controller v0.6.0)"]
+            ControlPlane["GKE Control Plane (JobSet Controller v0.12.0)"]
             HeadlessDNS["Headless DNS Service (jax-cpu-job)"]
             
             subgraph CPUNodes["Default CPU Node Pool (2 to 20 Nodes)"]
@@ -70,7 +70,7 @@ graph TD
     subgraph GKECluster["GKE Cluster Provisioning (Module 01)"]
         Flags["Cluster Security Flags:\n- Workload Identity\n- Shielded Secure Boot\n- Shielded Integrity Monitoring\n- IP Aliasing"]
         
-        JobSetCRD["Install JobSet Operator (v0.6.0)\nkubectl apply --server-side"]
+        JobSetCRD["Install JobSet Operator (v0.12.0)\nkubectl apply --server-side"]
         
         subgraph Pools["Node Pools"]
             DefaultPool["Default CPU Pool\n(e2-standard-4)"]

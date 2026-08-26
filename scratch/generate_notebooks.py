@@ -152,18 +152,25 @@ SUBNET_NAME = cfg.get("SUBNET_NAME", "jax-subnet")
     --role="roles/storage.objectViewer" && \\
  gcloud projects add-iam-policy-binding {PROJECT_ID} \\
     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \\
-    --role="roles/logs.writer" && \\
+    --role="roles/logging.logWriter" && \\
  gcloud projects add-iam-policy-binding {PROJECT_ID} \\
     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \\
     --role="roles/artifactregistry.writer"
 """),
-    markdown_cell("## Provision Custom VPC & Subnet with IP Aliasing"),
+    markdown_cell("## Provision Custom VPC & Subnet with IP Aliasing and Cloud NAT"),
     code_cell("""!gcloud compute networks create {NETWORK_NAME} --subnet-mode=custom"""),
     code_cell("""!gcloud compute networks subnets create {SUBNET_NAME} \\
     --network={NETWORK_NAME} \\
     --region={REGION} \\
     --range=10.0.0.0/20 \\
-    --secondary-range=pods-range=10.4.0.0/14,services-range=10.8.0.0/20"""),
+    --secondary-range=pods-range=10.4.0.0/14,services-range=10.8.0.0/20 \\
+    --enable-private-ip-google-access"""),
+    code_cell("""!gcloud compute routers create {NETWORK_NAME}-router --network={NETWORK_NAME} --region={REGION}"""),
+    code_cell("""!gcloud compute routers nats create {NETWORK_NAME}-nat \\
+    --router={NETWORK_NAME}-router \\
+    --region={REGION} \\
+    --auto-allocate-nat-external-ips \\
+    --nat-all-subnet-ip-ranges"""),
     markdown_cell("## Verify GCP Credentials & VPC Status"),
     code_cell("""!gcloud compute networks subnets describe {SUBNET_NAME} --region={REGION}""")
 ]
@@ -176,7 +183,7 @@ nb1_cells = [
 In this module, you will provision a GKE Standard Cluster with Shielded VM security flags and custom VPC networking.
 
 ### Learning Objectives:
-1. Create a GKE Standard Cluster with Workload Identity, Shielded VM, and IP-Aliasing enabled.
+1. Create a GKE Standard Cluster with Workload Identity, Shielded VM, IP-Aliasing, and Private Nodes enabled.
 2. Verify default CPU node pool (used for zero-quota multi-node CPU testing).
 3. Optional: Add dedicated GPU Node Pool (NVIDIA L4/A100) or TPU Node Pool (v5e 2x4 slice).
 4. Install Kubernetes JobSet Operator (`jobset.x-k8s.io`)."""),
@@ -211,6 +218,9 @@ JOBSET_VERSION = cfg["JOBSET_VERSION"]"""),
     --release-channel=regular \\
     --workload-pool={PROJECT_ID}.svc.id.goog \\
     --enable-ip-alias \\
+    --enable-private-nodes \\
+    --master-ipv4-cidr=172.16.0.0/28 \\
+    --no-enable-master-authorized-networks \\
     --network={NETWORK_NAME} \\
     --subnetwork={SUBNET_NAME} \\
     --cluster-secondary-range-name=pods-range \\
@@ -290,34 +300,52 @@ print(f"TPU Image: {TPU_FULL_IMAGE}")"""),
     --location={REGION} \\
     --description="JAX Multi-Node Container Repository\""""),
     code_cell("""!gcloud auth configure-docker {REGION}-docker.pkg.dev --quiet"""),
-    markdown_cell("## 2. Build JAX CPU Container Image (Primary Zero-Quota Image)"),
+    markdown_cell("""## 2. Build JAX CPU Container Image (Primary Zero-Quota Image)
+**Estimated Build Time**: ~1.5 - 2 minutes.
+
+Cloud Build compiles the image serverlessly, installs JAX and dependencies, and pushes directly to Google Artifact Registry."""),
     code_cell("""!gcloud builds submit ../src/ \\
-    --config=- <<EOF
+    --config=<(cat <<EOF
 steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', '{CPU_FULL_IMAGE}', '-f', 'Dockerfile.cpu', '.']
 images:
 - '{CPU_FULL_IMAGE}'
-EOF"""),
-    markdown_cell("## 3. Build JAX GPU & TPU Container Images"),
-    code_cell("""!gcloud builds submit ../src/ \\
-    --config=- <<EOF
-steps:
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', '{GPU_FULL_IMAGE}', '-f', 'Dockerfile.gpu', '.']
-images:
-- '{GPU_FULL_IMAGE}'
-EOF"""),
-    code_cell("""!gcloud builds submit ../src/ \\
-    --config=- <<EOF
-steps:
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', '{TPU_FULL_IMAGE}', '-f', 'Dockerfile.tpu', '.']
-images:
-- '{TPU_FULL_IMAGE}'
-EOF"""),
-    markdown_cell("## 4. Verify Built Images in Artifact Registry"),
-    code_cell("""!gcloud artifacts docker images list {REGION}-docker.pkg.dev/{PROJECT_ID}/{REPO}""")
+EOF
+)"""),
+    markdown_cell("""## 3. Optional: Build JAX GPU & TPU Container Images
+**Estimated Build Times**:
+- GPU Image (`Dockerfile.gpu`): ~4 - 6 minutes (CUDA 12 + cuDNN + NCCL layers)
+- TPU Image (`Dockerfile.tpu`): ~2 - 3 minutes (libtpu packages)"""),
+    code_cell("""# Uncomment below to build GPU image:
+# !gcloud builds submit ../src/ \\
+#     --config=<(cat <<EOF
+# steps:
+# - name: 'gcr.io/cloud-builders/docker'
+#   args: ['build', '-t', '{GPU_FULL_IMAGE}', '-f', 'Dockerfile.gpu', '.']
+# images:
+# - '{GPU_FULL_IMAGE}'
+# EOF
+# )"""),
+    code_cell("""# Uncomment below to build TPU image:
+# !gcloud builds submit ../src/ \\
+#     --config=<(cat <<EOF
+# steps:
+# - name: 'gcr.io/cloud-builders/docker'
+#   args: ['build', '-t', '{TPU_FULL_IMAGE}', '-f', 'Dockerfile.tpu', '.']
+# images:
+# - '{TPU_FULL_IMAGE}'
+# EOF
+# )"""),
+    markdown_cell("""## 4. Inspect Cloud Build Execution History & Logs
+To check the duration and status of recent builds, or stream logs for any build ID:
+```bash
+gcloud builds log <BUILD_ID>
+```"""),
+    code_cell("""!gcloud builds list --limit=3 --format="table(id,createTime,duration,status,images[0])" """),
+    markdown_cell("## 5. Verify Built Images in Artifact Registry"),
+    code_cell("""!gcloud artifacts docker images list {REGION}-docker.pkg.dev/{PROJECT_ID}/{REPO} \\
+    --format="table(package,image.basename(),createTime,size)" """)
 ]
 
 # ---------------------------------------------------------
@@ -395,12 +423,10 @@ with open(manifest_path, "r") as f:
     scale_content = f.read()
 
 scale_content = scale_content.replace("LOCATION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REGISTRY_REPO/CPU_IMAGE_NAME:IMAGE_TAG", CPU_FULL_IMAGE)
-scale_content = scale_content.replace("name: jax-cpu-job", "name: jax-scale-job")
-scale_content = scale_content.replace('values: ["jax-cpu-job"]', 'values: ["jax-scale-job"]')
+scale_content = scale_content.replace("jax-cpu-job", "jax-scale-job")
 scale_content = scale_content.replace("parallelism: 2", "parallelism: 20")
 scale_content = scale_content.replace("completions: 2", "completions: 20")
 scale_content = scale_content.replace('value: "2"', 'value: "20"')
-scale_content = scale_content.replace("jax-cpu-job-workers-0-0.jax-cpu-job", "jax-scale-job-workers-0-0.jax-scale-job")
 
 with open(scale_path, "w") as f:
     f.write(scale_content)

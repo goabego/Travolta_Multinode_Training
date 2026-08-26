@@ -44,7 +44,7 @@ Before running the interactive notebooks or terminal scripts, ensure you have:
 3. **Authentication & Service Account Permissions**:
    - **Google Colab**: Authenticate via `from google.colab import auth; auth.authenticate_user()` (included in Module 00).
    - **Local Terminal**: Run `gcloud auth login` and `gcloud auth application-default login`.
-   - **Cloud Build Service Account**: Ensure the Compute default service account (`[PROJECT_NUMBER]-compute@developer.gserviceaccount.com`) has `roles/storage.objectViewer`, `roles/logs.writer`, and `roles/artifactregistry.writer` permissions (automatically configured in Step 00).
+   - **Cloud Build Service Account**: Ensure the Compute default service account (`[PROJECT_NUMBER]-compute@developer.gserviceaccount.com`) has `roles/storage.objectViewer`, `roles/logging.logWriter`, and `roles/artifactregistry.writer` permissions (automatically configured in Step 00).
 
 > [!TIP]
 > **Troubleshooting `gcloud builds submit` 403 Permission Error (`could not resolve source ... storage.objects.get`):**
@@ -102,16 +102,14 @@ PROJECT_ID="your-gcp-project-id"
 # Step 02: Build JAX Container Image via Cloud Build
 ./scripts/02_build_image.sh
 
-# Step 03a: Render & Deploy CPU Multi-Node Training Job (Zero Quota)
+# Step 03: Render & Deploy CPU Multi-Node Training Job (Zero Quota)
 ./scripts/03_run_cpu_multinode.sh
 
-# Step 03b: Deploy GPU Multi-Node Training Job (NVIDIA L4 / GPU Node Pool)
-# Render image in manifests/jobset-gpu.yaml and apply:
-sed "s|LOCATION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REGISTRY_REPO/GPU_IMAGE_NAME:IMAGE_TAG|${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/${GPU_IMAGE_NAME}:${IMAGE_TAG}|g" manifests/jobset-gpu.yaml | kubectl apply -f -
+# Step 04: Deploy GPU Multi-Node Training Job (NVIDIA L4 / GPU Node Pool)
+./scripts/04_run_gpu_multinode.sh
 
-# Step 03c: Deploy TPU Multi-Host Slice Job (TPU v5e / 2x4 Topology)
-# Render image in manifests/jobset-tpu.yaml and apply:
-sed "s|LOCATION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REGISTRY_REPO/TPU_IMAGE_NAME:IMAGE_TAG|${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/${TPU_IMAGE_NAME}:${IMAGE_TAG}|g" manifests/jobset-tpu.yaml | kubectl apply -f -
+# Step 05: Deploy TPU Multi-Host Slice Job (TPU v5e / 2x4 Topology)
+./scripts/05_run_tpu_multinode.sh
 
 # Step 06: Cleanup & Teardown All GCP Resources
 ./scripts/06_cleanup.sh
@@ -134,6 +132,8 @@ sed "s|LOCATION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REGISTRY_REPO/TPU_IMAGE_NAME:
 │   ├── 01_create_cluster.sh        # Step 01: GKE cluster & JobSet operator script
 │   ├── 02_build_image.sh           # Step 02: Container build via Cloud Build script
 │   ├── 03_run_cpu_multinode.sh     # Step 03: CPU multi-node JobSet execution script
+│   ├── 04_run_gpu_multinode.sh     # Step 04: GPU multi-node JobSet execution script
+│   ├── 05_run_tpu_multinode.sh     # Step 05: TPU multi-host slice JobSet execution script
 │   └── 06_cleanup.sh               # Step 06: Complete teardown & cleanup script
 ├── notebooks/                      # 7-Module Progressive Notebook Series
 │   ├── 00_config_and_setup.ipynb   # Module 00: VPC, Subnet & GCP API Setup
