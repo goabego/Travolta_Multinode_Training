@@ -98,6 +98,7 @@ run_part_b() {
     echo ""
     echo "▶ [Step B.1] Resizing GKE Cluster to 20 Nodes..."
     gcloud container clusters resize "${CLUSTER_NAME}" \
+        --project="${PROJECT_ID}" \
         --node-pool=default-pool \
         --num-nodes="${CPU_SCALE_NODE_COUNT:-20}" \
         --zone="${ZONE}" \

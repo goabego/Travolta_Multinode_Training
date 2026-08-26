@@ -1,0 +1,26 @@
+# ==============================================================================
+# Disposable GCP Project Configuration
+# ==============================================================================
+
+# Project Prefix (results in <prefix>-<pet-word1>-<pet-word2>, max 30 chars total)
+project_prefix = "travolta"
+
+# GCP Billing Account ID (e.g., "012345-6789AB-CDEF01")
+billing_account = "000000-000000-000000"
+
+# Target Folder ID where you have 'roles/resourcemanager.projectCreator' permissions
+# (RECOMMENDED for enterprise GCP environments like Google org):
+# folder_id = "123456789012"
+
+# Organization ID (Only set if you have root org-level project creation permissions):
+org_id = "101096319108"
+
+# Default Region
+region = "us-central1"
+
+# Automatically create the default VPC network (recommended: false for clean custom VPCs)
+auto_create_network = false
+
+# Organization Policy Overrides
+disable_require_shielded_vm = true
+# custom_org_policies_to_disable = []

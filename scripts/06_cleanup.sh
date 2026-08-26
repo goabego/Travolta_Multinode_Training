@@ -50,52 +50,52 @@ kubectl delete jobset jax-cpu-job jax-scale-job jax-gpu-job jax-tpu-job --ignore
 # 3. Delete GKE Cluster
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 2/5] Deleting GKE Cluster '${CLUSTER_NAME}'..."
-if gcloud container clusters describe "${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
-    gcloud container clusters delete "${CLUSTER_NAME}" --zone="${ZONE}" --quiet
+echo "▶ [Step 2/5] Deleting GKE Cluster '${CLUSTER_NAME}' in project '${PROJECT_ID}'..."
+if gcloud container clusters describe "${CLUSTER_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}" >/dev/null 2>&1; then
+    gcloud container clusters delete "${CLUSTER_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}" --quiet
 else
-    echo "GKE Cluster '${CLUSTER_NAME}' does not exist or already deleted."
+    echo "GKE Cluster '${CLUSTER_NAME}' does not exist or already deleted in '${PROJECT_ID}'."
 fi
 
 # ------------------------------------------------------------------------------
 # 4. Delete Artifact Registry Repository
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 3/5] Deleting Artifact Registry Repository '${ARTIFACT_REGISTRY_REPO}'..."
-if gcloud artifacts repositories describe "${ARTIFACT_REGISTRY_REPO}" --location="${REGION}" >/dev/null 2>&1; then
-    gcloud artifacts repositories delete "${ARTIFACT_REGISTRY_REPO}" --location="${REGION}" --quiet
+echo "▶ [Step 3/5] Deleting Artifact Registry Repository '${ARTIFACT_REGISTRY_REPO}' in project '${PROJECT_ID}'..."
+if gcloud artifacts repositories describe "${ARTIFACT_REGISTRY_REPO}" --project="${PROJECT_ID}" --location="${REGION}" >/dev/null 2>&1; then
+    gcloud artifacts repositories delete "${ARTIFACT_REGISTRY_REPO}" --project="${PROJECT_ID}" --location="${REGION}" --quiet
 else
-    echo "Artifact Registry repository '${ARTIFACT_REGISTRY_REPO}' does not exist or already deleted."
+    echo "Artifact Registry repository '${ARTIFACT_REGISTRY_REPO}' does not exist or already deleted in '${PROJECT_ID}'."
 fi
 
 # ------------------------------------------------------------------------------
 # 5. Delete Cloud NAT, Cloud Router, Custom Subnet & VPC Network
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 4/5] Deleting Cloud NAT, Cloud Router, Subnet '${SUBNET_NAME}' and VPC Network '${NETWORK_NAME}'..."
-if gcloud compute routers nats describe "${NETWORK_NAME}-nat" --router="${NETWORK_NAME}-router" --region="${REGION}" >/dev/null 2>&1; then
-    gcloud compute routers nats delete "${NETWORK_NAME}-nat" --router="${NETWORK_NAME}-router" --region="${REGION}" --quiet || true
+echo "▶ [Step 4/5] Deleting Cloud NAT, Cloud Router, Subnet '${SUBNET_NAME}' and VPC Network '${NETWORK_NAME}' in '${PROJECT_ID}'..."
+if gcloud compute routers nats describe "${NETWORK_NAME}-nat" --project="${PROJECT_ID}" --router="${NETWORK_NAME}-router" --region="${REGION}" >/dev/null 2>&1; then
+    gcloud compute routers nats delete "${NETWORK_NAME}-nat" --project="${PROJECT_ID}" --router="${NETWORK_NAME}-router" --region="${REGION}" --quiet || true
 fi
 
-if gcloud compute routers describe "${NETWORK_NAME}-router" --region="${REGION}" >/dev/null 2>&1; then
-    gcloud compute routers delete "${NETWORK_NAME}-router" --region="${REGION}" --quiet || true
+if gcloud compute routers describe "${NETWORK_NAME}-router" --project="${PROJECT_ID}" --region="${REGION}" >/dev/null 2>&1; then
+    gcloud compute routers delete "${NETWORK_NAME}-router" --project="${PROJECT_ID}" --region="${REGION}" --quiet || true
 fi
 
-if gcloud compute networks subnets describe "${SUBNET_NAME}" --region="${REGION}" >/dev/null 2>&1; then
-    gcloud compute networks subnets delete "${SUBNET_NAME}" --region="${REGION}" --quiet || true
+if gcloud compute networks subnets describe "${SUBNET_NAME}" --project="${PROJECT_ID}" --region="${REGION}" >/dev/null 2>&1; then
+    gcloud compute networks subnets delete "${SUBNET_NAME}" --project="${PROJECT_ID}" --region="${REGION}" --quiet || true
 fi
 
-if gcloud compute networks describe "${NETWORK_NAME}" >/dev/null 2>&1; then
-    gcloud compute networks delete "${NETWORK_NAME}" --quiet || true
+if gcloud compute networks describe "${NETWORK_NAME}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+    gcloud compute networks delete "${NETWORK_NAME}" --project="${PROJECT_ID}" --quiet || true
 fi
 
 # ------------------------------------------------------------------------------
 # 6. Final GCP Verification
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 5/5] Performing Final GCP Verification Check..."
+echo "▶ [Step 5/5] Performing Final GCP Verification Check for '${PROJECT_ID}'..."
 echo "Active GKE clusters in ${ZONE}:"
-gcloud container clusters list --zone="${ZONE}"
+gcloud container clusters list --project="${PROJECT_ID}" --zone="${ZONE}"
 
 echo ""
 echo "=============================================================================="

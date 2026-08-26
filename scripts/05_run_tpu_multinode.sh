@@ -45,9 +45,10 @@ echo "==========================================================================
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶ [Step 1/5] Checking TPU Node Pool Status..."
-if ! gcloud container node-pools describe "${TPU_NODE_POOL_NAME}" --cluster="${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
+if ! gcloud container node-pools describe "${TPU_NODE_POOL_NAME}" --project="${PROJECT_ID}" --cluster="${CLUSTER_NAME}" --zone="${ZONE}" >/dev/null 2>&1; then
     echo "Creating TPU Node Pool (${TPU_NODE_POOL_NAME}) with ${TPU_NODE_COUNT} nodes (${TPU_MACHINE_TYPE} / ${TPU_TOPOLOGY})..."
     gcloud container node-pools create "${TPU_NODE_POOL_NAME}" \
+        --project="${PROJECT_ID}" \
         --cluster="${CLUSTER_NAME}" \
         --zone="${ZONE}" \
         --node-locations="${ZONE}" \
@@ -58,7 +59,7 @@ if ! gcloud container node-pools describe "${TPU_NODE_POOL_NAME}" --cluster="${C
             echo "Continuing to attempt JobSet deployment if nodes exist..."
         }
 else
-    echo "TPU Node Pool '${TPU_NODE_POOL_NAME}' already exists."
+    echo "TPU Node Pool '${TPU_NODE_POOL_NAME}' already exists in '${PROJECT_ID}'."
 fi
 
 # ------------------------------------------------------------------------------

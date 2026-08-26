@@ -3,7 +3,7 @@
 # Module 02: Container Build & Artifact Registry Setup
 # ==============================================================================
 # Learning Objectives:
-# 1. Create a Docker Artifact Registry repository in GCP.
+# 1. Ensure Docker Artifact Registry repository exists in the target GCP project.
 # 2. Configure Docker client authentication with Google Artifact Registry.
 # 3. Ensure Cloud Build service account permissions for storage and logging.
 # 4. Build the primary zero-quota CPU JAX container image (Dockerfile.cpu).
@@ -40,17 +40,19 @@ echo "TPU Image:         ${TPU_IMAGE_NAME}:${IMAGE_TAG}"
 echo "=============================================================================="
 
 # ------------------------------------------------------------------------------
-# 2. Create Artifact Registry Repository & Configure Authentication
+# 2. Ensure Artifact Registry Repository Exists & Configure Authentication
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 1/5] Creating Artifact Registry Repository '${ARTIFACT_REGISTRY_REPO}'..."
-if ! gcloud artifacts repositories describe "${ARTIFACT_REGISTRY_REPO}" --location="${REGION}" >/dev/null 2>&1; then
+echo "▶ [Step 1/5] Checking/Creating Artifact Registry Repository '${ARTIFACT_REGISTRY_REPO}' in project '${PROJECT_ID}'..."
+if ! gcloud artifacts repositories describe "${ARTIFACT_REGISTRY_REPO}" --location="${REGION}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+    echo "Creating Artifact Registry repository '${ARTIFACT_REGISTRY_REPO}' in project '${PROJECT_ID}'..."
     gcloud artifacts repositories create "${ARTIFACT_REGISTRY_REPO}" \
+        --project="${PROJECT_ID}" \
         --repository-format=docker \
         --location="${REGION}" \
         --description="JAX Multi-Node Container Repository"
 else
-    echo "Artifact Registry repository '${ARTIFACT_REGISTRY_REPO}' already exists."
+    echo "Artifact Registry repository '${ARTIFACT_REGISTRY_REPO}' already exists in project '${PROJECT_ID}'."
 fi
 
 echo ""
@@ -61,7 +63,7 @@ gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
 # 3. Ensure Service Account Permissions for Cloud Build
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 3/5] Verifying Cloud Build Service Account Permissions..."
+echo "▶ [Step 3/5] Verifying Cloud Build Service Account Permissions in '${PROJECT_ID}'..."
 PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)")
 COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
@@ -86,7 +88,7 @@ TPU_FULL_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}
 # 4. Build Container Images via Cloud Build
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 4/6] Building JAX Container Images via Google Cloud Build (Target: ${TARGET})..."
+echo "▶ [Step 4/6] Building JAX Container Images via Google Cloud Build (Target: ${TARGET}, Project: ${PROJECT_ID})..."
 echo "ℹ️ Estimated Build Times:"
 echo "   - CPU Image (Dockerfile.cpu): ~1.5 - 2 minutes"
 echo "   - GPU Image (Dockerfile.gpu): ~4 - 6 minutes (CUDA 12 + NCCL layers)"
@@ -104,22 +106,25 @@ images:
 EOF
 
 if [ "$TARGET" = "cpu" ] || [ "$TARGET" = "all" ]; then
-    echo "🔨 [1/3] Building CPU JAX Image (Estimated: ~2 min): ${CPU_FULL_IMAGE}..."
+    echo "🔨 [1/3] Building CPU JAX Image: ${CPU_FULL_IMAGE}..."
     gcloud builds submit "${ROOT_DIR}/src/" \
+        --project="${PROJECT_ID}" \
         --config="${CLOUDBUILD_CONFIG}" \
         --substitutions=_IMAGE="${CPU_FULL_IMAGE}",_DOCKERFILE="Dockerfile.cpu"
 fi
 
 if [ "$TARGET" = "gpu" ] || [ "$TARGET" = "all" ]; then
-    echo "🔨 [2/3] Building GPU JAX Image (Estimated: ~5 min): ${GPU_FULL_IMAGE}..."
+    echo "🔨 [2/3] Building GPU JAX Image: ${GPU_FULL_IMAGE}..."
     gcloud builds submit "${ROOT_DIR}/src/" \
+        --project="${PROJECT_ID}" \
         --config="${CLOUDBUILD_CONFIG}" \
         --substitutions=_IMAGE="${GPU_FULL_IMAGE}",_DOCKERFILE="Dockerfile.gpu"
 fi
 
 if [ "$TARGET" = "tpu" ] || [ "$TARGET" = "all" ]; then
-    echo "🔨 [3/3] Building TPU JAX Image (Estimated: ~3 min): ${TPU_FULL_IMAGE}..."
+    echo "🔨 [3/3] Building TPU JAX Image: ${TPU_FULL_IMAGE}..."
     gcloud builds submit "${ROOT_DIR}/src/" \
+        --project="${PROJECT_ID}" \
         --config="${CLOUDBUILD_CONFIG}" \
         --substitutions=_IMAGE="${TPU_FULL_IMAGE}",_DOCKERFILE="Dockerfile.tpu"
 fi
@@ -130,16 +135,16 @@ rm -f "${CLOUDBUILD_CONFIG}"
 # 5. Check Recent Cloud Build Execution History
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 5/6] Inspecting Cloud Build Execution Status & Durations..."
-echo "To view detailed logs for any build in the future, run: gcloud builds log <BUILD_ID>"
-gcloud builds list --limit=3 --format="table(id,createTime,duration,status,images[0])"
+echo "▶ [Step 5/6] Inspecting Cloud Build Execution Status in '${PROJECT_ID}'..."
+gcloud builds list --project="${PROJECT_ID}" --limit=3 --format="table(id,createTime,duration,status,images[0])"
 
 # ------------------------------------------------------------------------------
 # 6. Verify Built Images in Artifact Registry
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 6/6] Verifying Container Images in Google Artifact Registry..."
+echo "▶ [Step 6/6] Verifying Container Images in Google Artifact Registry (${PROJECT_ID})..."
 gcloud artifacts docker images list "${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}" \
+    --project="${PROJECT_ID}" \
     --format="table(package,image.basename(),createTime,size)"
 
 echo ""

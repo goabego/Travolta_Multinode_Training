@@ -28,7 +28,7 @@ graph TD
 
         subgraph GKE["GKE Standard Cluster (jax-distributed-cluster)"]
             ControlPlane["GKE Control Plane (JobSet Controller v0.12.0)"]
-            HeadlessDNS["Headless DNS Service (jax-cpu-job)"]
+            HeadlessDNS["Headless DNS Service (jax-cpu-job / jax-cpu-train-job)"]
             
             subgraph CPUNodes["Default CPU Node Pool (2 to 20 Private Nodes)"]
                 Pod0["Pod 0 (Rank 0 - Coordinator)\nIP: 10.4.0.5\n4 Virtual Devices"]
@@ -44,8 +44,43 @@ graph TD
     ControlPlane -->|Gang Schedules| CPUNodes
     Pod0 <-->|TCP Port 1234 / Headless DNS| Pod1
     Pod0 <-->|TCP Port 1234 / Headless DNS| PodN
-    Pod1 <-->|jax.lax.psum All-Reduce| PodN
+    Pod1 <-->|jax.lax.psum / SPMD All-Reduce| PodN
     AR -->|Pull Images| CPUNodes
+```
+
+---
+
+## 🏛️ Infrastructure-as-Code Architecture (Terraform)
+
+The `terraform/` directory manages the foundational cloud infrastructure declaratively:
+
+```mermaid
+flowchart TD
+    subgraph TF["Terraform Engine (make tf-apply)"]
+        Keepers["random_pet (Keepers: project_prefix)"]
+        Proj["google_project (disposable project)"]
+        OrgPol["google_project_organization_policy (requireShieldedVm: false)"]
+        APIs["google_project_service (GKE, Compute, AR, CloudBuild, IAM)"]
+        IAM["google_project_iam_member (Compute SA & CloudBuild SA)"]
+        VPC["google_compute_network (jax-network)"]
+        Subnet["google_compute_subnetwork (jax-subnet + secondary ranges)"]
+        NAT["google_compute_router & nat (jax-network-nat)"]
+        AR["google_artifact_registry_repository (jax-gke-repo)"]
+        GKE["google_container_cluster & node_pool (Private GKE)"]
+        Bootstrap["local-exec: get-credentials & apply JobSet Operator CRDs"]
+    end
+
+    Keepers --> Proj
+    Proj --> OrgPol
+    Proj --> APIs
+    APIs --> IAM
+    APIs --> VPC
+    VPC --> Subnet
+    Subnet --> NAT
+    APIs --> AR
+    NAT --> GKE
+    Subnet --> GKE
+    GKE --> Bootstrap
 ```
 
 ---
@@ -97,7 +132,7 @@ Module 02 uses **Google Cloud Build** to compile container images serverlessly w
 ```mermaid
 flowchart TD
     subgraph LocalRepo["Local Workspace (src/)"]
-        DockerCPU["Dockerfile.cpu\n+ jax_cpu_test.py"]
+        DockerCPU["Dockerfile.cpu\n+ jax_cpu_test.py\n+ jax_cpu_train_toy_model.py"]
         DockerGPU["Dockerfile.gpu\n+ jax_gpu_test.py"]
         DockerTPU["Dockerfile.tpu\n+ jax_tpu_test.py"]
     end
@@ -151,18 +186,41 @@ sequenceDiagram
     Note over Rank0,Rank1: Synchronized Sum Verified: 3.0 (2 Nodes) / 210.0 (20 Nodes)
 ```
 
-### 2. Pod Anti-Affinity Topology
+---
+
+## 🔬 Module 03b: Multi-Node CPU Toy Model Training Architecture
+
+Module 03b executes distributed data-parallel (DDP) training of a 3-layer MLP classifier across CPU nodes using **Flax Linen** and **Optax Adam**.
+
 ```mermaid
-graph LR
-    subgraph Node1["Physical Node 1 (compute-vm-1)"]
-        Pod0["Pod 0 (Rank 0)\n1.5 CPU / 2Gi Mem\n4 XLA Virtual Devices"]
-    end
-    
-    subgraph Node2["Physical Node 2 (compute-vm-2)"]
-        Pod1["Pod 1 (Rank 1)\n1.5 CPU / 2Gi Mem\n4 XLA Virtual Devices"]
+flowchart TD
+    subgraph DDP["SPMD Data Parallelism on CPUs"]
+        subgraph Node0["Physical Node 0 (Rank 0)"]
+            Devs0["4 Virtual CPU Devices"]
+            Shard0["Local Batch Shard 0\n(128 samples)"]
+            Loss0["Local Forward Loss & Grad"]
+        end
+
+        subgraph Node1["Physical Node 1 (Rank 1)"]
+            Devs1["4 Virtual CPU Devices"]
+            Shard1["Local Batch Shard 1\n(128 samples)"]
+            Loss1["Local Forward Loss & Grad"]
+        end
+
+        Mesh["jax.sharding.Mesh: Mesh(devices, ('data',))"]
+        Weights["Replicated Model Weights: NamedSharding(P())"]
+        AllReduce["SPMD Gradient All-Reduce (Cross-Host TCP)"]
+        Optimizer["Optax Adam Optimizer Step"]
     end
 
-    Pod0 -.-|podAntiAffinity: topologyKey kubernetes.io/hostname| Pod1
+    Shard0 --> Loss0
+    Shard1 --> Loss1
+    Loss0 --> AllReduce
+    Loss1 --> AllReduce
+    Weights --> Loss0
+    Weights --> Loss1
+    AllReduce --> Optimizer
+    Optimizer --> Weights
 ```
 
 ---
@@ -209,7 +267,7 @@ graph TD
 
 ## 📙 Module 06: Cost Teardown & Resource Cleanup Flow
 
-Module 06 cleans up all created GCP assets in strict reverse dependency order to prevent unexpected compute charges.
+Module 06 cleans up all created GCP assets in strict reverse dependency order to prevent unexpected compute charges (`make tf-destroy` or `./scripts/06_cleanup.sh`).
 
 ```mermaid
 flowchart TD
