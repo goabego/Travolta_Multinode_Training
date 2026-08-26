@@ -34,7 +34,10 @@ resource "google_container_cluster" "primary" {
     master_ipv4_cidr_block = var.master_ipv4_cidr_block
   }
 
-  deletion_protection = false
+  # Separate node pool lifecycle management
+  remove_default_node_pool = true
+  initial_node_count       = 1
+  deletion_protection      = false
 
   release_channel {
     channel = "REGULAR"
