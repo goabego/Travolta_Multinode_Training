@@ -75,6 +75,7 @@ echo "Saved rendered manifest to ${ROOT_DIR}/manifests/jobset-gpu-rendered.yaml"
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶ [Step 3/5] Deploying GPU JobSet to GKE..."
+kubectl delete jobset,service jax-gpu-job --ignore-not-found
 kubectl apply -f "${ROOT_DIR}/manifests/jobset-gpu-rendered.yaml"
 
 # ------------------------------------------------------------------------------

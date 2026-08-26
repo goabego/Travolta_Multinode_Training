@@ -77,6 +77,7 @@ echo "Saved rendered manifest to ${ROOT_DIR}/manifests/jobset-tpu-rendered.yaml"
 # ------------------------------------------------------------------------------
 echo ""
 echo "▶ [Step 3/5] Deploying TPU JobSet to GKE..."
+kubectl delete jobset,service jax-tpu-job --ignore-not-found
 kubectl apply -f "${ROOT_DIR}/manifests/jobset-tpu-rendered.yaml"
 
 # ------------------------------------------------------------------------------

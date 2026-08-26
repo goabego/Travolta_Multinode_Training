@@ -38,7 +38,7 @@ spec:
               restartPolicy: Never
               containers:
                 - name: jax-cpu-worker
-                  image: us-central1-docker.pkg.dev/jax-multinode-1010/jax-gke-repo/jax-cpu-multinode:latest
+                  image: us-central1-docker.pkg.dev/multinode-gke-test/jax-gke-repo/jax-cpu-multinode:latest
                   ports:
                     - containerPort: 1234
                       name: coordinator
@@ -64,18 +64,3 @@ spec:
                     limits:
                       cpu: "2"
                       memory: "4Gi"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: jax-cpu-job
-  namespace: default
-spec:
-  clusterIP: None
-  publishNotReadyAddresses: true
-  selector:
-    jobset.x-k8s.io/jobset-name: jax-cpu-job
-  ports:
-    - port: 1234
-      targetPort: 1234
-      name: coordinator

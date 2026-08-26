@@ -69,16 +69,24 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 5. Delete Custom Subnet & VPC Network
+# 5. Delete Cloud NAT, Cloud Router, Custom Subnet & VPC Network
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 4/5] Deleting Custom Subnet '${SUBNET_NAME}' and VPC Network '${NETWORK_NAME}'..."
+echo "▶ [Step 4/5] Deleting Cloud NAT, Cloud Router, Subnet '${SUBNET_NAME}' and VPC Network '${NETWORK_NAME}'..."
+if gcloud compute routers nats describe "${NETWORK_NAME}-nat" --router="${NETWORK_NAME}-router" --region="${REGION}" >/dev/null 2>&1; then
+    gcloud compute routers nats delete "${NETWORK_NAME}-nat" --router="${NETWORK_NAME}-router" --region="${REGION}" --quiet || true
+fi
+
+if gcloud compute routers describe "${NETWORK_NAME}-router" --region="${REGION}" >/dev/null 2>&1; then
+    gcloud compute routers delete "${NETWORK_NAME}-router" --region="${REGION}" --quiet || true
+fi
+
 if gcloud compute networks subnets describe "${SUBNET_NAME}" --region="${REGION}" >/dev/null 2>&1; then
-    gcloud compute networks subnets delete "${SUBNET_NAME}" --region="${REGION}" --quiet
+    gcloud compute networks subnets delete "${SUBNET_NAME}" --region="${REGION}" --quiet || true
 fi
 
 if gcloud compute networks describe "${NETWORK_NAME}" >/dev/null 2>&1; then
-    gcloud compute networks delete "${NETWORK_NAME}" --quiet
+    gcloud compute networks delete "${NETWORK_NAME}" --quiet || true
 fi
 
 # ------------------------------------------------------------------------------

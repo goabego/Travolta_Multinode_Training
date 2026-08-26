@@ -78,12 +78,12 @@ echo ""
 echo "▶ [Step 2/5] Fetching cluster credentials for kubectl..."
 gcloud container clusters get-credentials "${CLUSTER_NAME}" --zone="${ZONE}"
 
-# ------------------------------------------------------------------------------
-# 4. Install Kubernetes JobSet Operator
-# ------------------------------------------------------------------------------
 echo ""
 echo "▶ [Step 3/5] Installing Kubernetes JobSet Controller (${JOBSET_VERSION})..."
 kubectl apply --server-side -f "https://github.com/kubernetes-sigs/jobset/releases/download/${JOBSET_VERSION}/manifests.yaml"
+
+echo "Waiting for JobSet Controller Manager pod to be Ready..."
+kubectl wait --for=condition=Ready pod -l control-plane=controller-manager -n jobset-system --timeout=90s || true
 
 # ------------------------------------------------------------------------------
 # 5. Optional Accelerator Node Pools (GPU / TPU)

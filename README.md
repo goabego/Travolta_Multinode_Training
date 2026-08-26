@@ -66,7 +66,65 @@ For module-by-module architecture diagrams, see **[`ARCHITECTURE.md`](ARCHITECTU
 
 ---
 
-## 🚀 Interactive Notebook Series (Open in Colab)
+## 🖥️ Primary CLI Execution Workflow (Standalone Scripts)
+
+The repository provides a complete, standalone, progressive shell script workflow in the [`scripts/`](file:///Users/abrahamgomez/travolta/scripts) directory. Each script is self-contained, idempotent, and includes educational step-by-step logs and mathematical proofs.
+
+### 1. Configure your GCP Project
+Edit [`config.env`](file:///Users/abrahamgomez/travolta/config.env) and set your target `PROJECT_ID`:
+```bash
+PROJECT_ID="your-gcp-project-id"
+REGION="us-central1"
+ZONE="us-central1-a"
+```
+
+### 2. Execute Progressive Shell Scripts
+
+```bash
+# ------------------------------------------------------------------------------
+# Module 00: Enable GCP APIs & Provision Custom VPC Network + Cloud NAT
+# ------------------------------------------------------------------------------
+./scripts/00_setup_network.sh
+
+# ------------------------------------------------------------------------------
+# Module 01: Create GKE Standard Cluster (Private Nodes) & Install JobSet Operator
+# ------------------------------------------------------------------------------
+./scripts/01_create_cluster.sh
+
+# ------------------------------------------------------------------------------
+# Module 02: Build JAX Container Images via Google Cloud Build (~2 min)
+# ------------------------------------------------------------------------------
+./scripts/02_build_image.sh cpu
+
+# ------------------------------------------------------------------------------
+# Module 03: Run CPU Multi-Node Training & 10x Scale-Up Verification (Zero Quota)
+#   - Part A: 2 Nodes (8 Virtual Devices)   -> Validates Sum = 3.0
+#   - Part B: 20 Nodes (80 Virtual Devices) -> Validates Sum = 210.0
+# ------------------------------------------------------------------------------
+./scripts/03_run_cpu_multinode.sh --all
+
+# ------------------------------------------------------------------------------
+# Module 04: Multi-Node GPU Training (NVIDIA L4 / GPU Node Pool) [Optional]
+# ------------------------------------------------------------------------------
+./scripts/04_run_gpu_multinode.sh
+
+# ------------------------------------------------------------------------------
+# Module 05: Multi-Host TPU Slice Training (TPU v5e 2x4 Topology) [Optional]
+# ------------------------------------------------------------------------------
+./scripts/05_run_tpu_multinode.sh
+
+# ------------------------------------------------------------------------------
+# Module 06: Complete Resource Teardown & Cost Cleanup
+# ------------------------------------------------------------------------------
+./scripts/06_cleanup.sh
+```
+
+---
+
+## 📚 Legacy Interactive Notebooks (Colab)
+
+> [!NOTE]
+> The scripts above in `scripts/` are the primary, actively tested execution pathway. The notebooks in `notebooks/` are maintained for browser-based reference.
 
 | Module | Notebook Title | Google Colab Link |
 | :--- | :--- | :--- |
@@ -77,43 +135,6 @@ For module-by-module architecture diagrams, see **[`ARCHITECTURE.md`](ARCHITECTU
 | **Module 04** | GPU Multi-Node Training | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/04_jax_gpu_multinode.ipynb) |
 | **Module 05** | TPU Multi-Host Slice Training | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/05_jax_tpu_multinode.ipynb) |
 | **Module 06** | Complete Resource Teardown | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/goabego/Travolta_Multinode_Training/blob/main/notebooks/06_cleanup.ipynb) |
-
----
-
-## 🖥️ Running via Terminal / CLI (Without Notebooks)
-
-You can run the entire workflow directly from your command-line terminal using the provided shell scripts in `scripts/`:
-
-### 1. Configure your GCP Project
-Edit `config.env` and set your `PROJECT_ID`:
-```bash
-PROJECT_ID="your-gcp-project-id"
-```
-
-### 2. Execute Shell Scripts & Deploy Workloads
-
-```bash
-# Step 00: Enable GCP APIs & Provision Custom VPC Network
-./scripts/00_setup_network.sh
-
-# Step 01: Create GKE Cluster & Install JobSet Operator
-./scripts/01_create_cluster.sh
-
-# Step 02: Build JAX Container Image via Cloud Build
-./scripts/02_build_image.sh
-
-# Step 03: Render & Deploy CPU Multi-Node Training Job (Zero Quota)
-./scripts/03_run_cpu_multinode.sh
-
-# Step 04: Deploy GPU Multi-Node Training Job (NVIDIA L4 / GPU Node Pool)
-./scripts/04_run_gpu_multinode.sh
-
-# Step 05: Deploy TPU Multi-Host Slice Job (TPU v5e / 2x4 Topology)
-./scripts/05_run_tpu_multinode.sh
-
-# Step 06: Cleanup & Teardown All GCP Resources
-./scripts/06_cleanup.sh
-```
 
 ---
 

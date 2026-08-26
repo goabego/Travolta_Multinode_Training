@@ -39,25 +39,26 @@ echo "Subnet:     ${SUBNET_NAME}"
 echo "=============================================================================="
 
 # ------------------------------------------------------------------------------
-# 2. Configure gcloud CLI Active Project & Compute Defaults
+# 2. Configure gcloud CLI Active Project & Enable Essential GCP APIs
 # ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 1/5] Setting gcloud project, region, and zone configuration..."
-gcloud config set project "${PROJECT_ID}"
-gcloud config set compute/region "${REGION}"
-gcloud config set compute/zone "${ZONE}"
+echo "▶ [Step 1/5] Setting active gcloud project to ${PROJECT_ID}..."
+gcloud config set project "${PROJECT_ID}" --quiet
 
-# ------------------------------------------------------------------------------
-# 3. Enable Required GCP APIs
-# ------------------------------------------------------------------------------
 echo ""
-echo "▶ [Step 2/5] Enabling required GKE, Container & Cloud Build APIs..."
+echo "▶ [Step 2/5] Enabling required GKE, Container, Compute & Cloud Build APIs..."
 gcloud services enable \
+    compute.googleapis.com \
     container.googleapis.com \
     artifactregistry.googleapis.com \
     cloudbuild.googleapis.com \
     iam.googleapis.com \
-    compute.googleapis.com
+    --project="${PROJECT_ID}" \
+    --quiet
+
+echo "Setting default compute region and zone..."
+gcloud config set compute/region "${REGION}" --quiet
+gcloud config set compute/zone "${ZONE}" --quiet
 
 # ------------------------------------------------------------------------------
 # 4. Configure IAM Permissions for Cloud Build & Compute Default Service Account
